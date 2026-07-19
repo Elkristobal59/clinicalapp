@@ -45,6 +45,7 @@ tab1, tab2 = st.tabs(["📄 Extraction & Ingestion", "💬 Chatbot RAG"])
 with tab1:
     st.header("1. Ingestion & Extraction")
     query = st.text_input("Quelle maladie investiguer ? (ex: Cardiology, Breast Cancer)")
+    max_results = st.slider("Nombre d'essais cliniques à extraire :", min_value=1, max_value=10, value=2)
     
     if st.button("Lancer l'Extraction Complète"):
         if query and run_scraper:
@@ -52,10 +53,10 @@ with tab1:
             
             with st.spinner("Étape 1/2 : Scraping furtif des serveurs cliniques en cours (Playwright)..."):
                 start_time = time.time()
-                output_dir = run_scraper(query, max_results=2)
+                output_dir = run_scraper(query, max_results=max_results)
                 st.success(f"✅ Scraping terminé en {time.time() - start_time:.1f}s")
                 
-            pdfs = glob.glob(os.path.join(output_dir, "*.pdf"))[:2]
+            pdfs = glob.glob(os.path.join(output_dir, "*.pdf"))[:max_results]
             
             if not pdfs:
                 st.warning("Aucun PDF trouvé lors du scraping.")
