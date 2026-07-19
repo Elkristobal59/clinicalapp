@@ -29,11 +29,12 @@ biobert_model = None
 qwen_tokenizer = None
 qwen_model = None
 conn = None
+is_vllm = False
 
 @app.on_event("startup")
 async def startup_event():
     """Charge les modèles lourds en RAM/VRAM une seule fois au démarrage."""
-    global device, biobert_tokenizer, biobert_model, qwen_tokenizer, qwen_model, conn
+    global device, biobert_tokenizer, biobert_model, qwen_tokenizer, qwen_model, conn, is_vllm
     
     print("Initialisation du pipeline sur GPU...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,13 +43,21 @@ async def startup_event():
     biobert_tokenizer = AutoTokenizer.from_pretrained(BIOBERT_MODEL)
     biobert_model = AutoModel.from_pretrained(BIOBERT_MODEL).to(device)
     
-    print(f"Chargement {QWEN_MODEL} (LLM Génératif) avec vLLM...")
+    print(f"Chargement {QWEN_MODEL} (LLM Génératif)...")
     qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL)
-    try:
-        # gpu_memory_utilization = 0.7 laisse 30% de VRAM pour BioBERT
-        qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.7)
-    except NameError:
-        # Fallback CPU si vLLM n'est pas installé (ex: test local)
+    
+    # On n'active vLLM que si on a un GPU (vLLM plante sur CPU pur)
+    if torch.cuda.is_available():
+        try:
+            print("GPU détecté -> Activation de vLLM...")
+            qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.7)
+            is_vllm = True
+        except Exception as e:
+            print(f"Erreur vLLM, fallback transformers: {e}")
+            is_vllm = False
+            
+    if not is_vllm:
+        print("Mode CPU ou Fallback -> Activation de Transformers...")
         qwen_model = AutoModelForCausalLM.from_pretrained(
             QWEN_MODEL, 
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32, 
@@ -157,12 +166,13 @@ Response (JSON only):
         text_prompt = qwen_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
         print(f"Génération Qwen pour {disease}...")
-        try:
+        
+        if is_vllm:
             # vLLM path
             sampling_params = SamplingParams(temperature=0.1, max_tokens=2048)
             outputs = qwen_model.generate([text_prompt], sampling_params)
             response_json = outputs[0].outputs[0].text
-        except AttributeError:
+        else:
             # Fallback transformers path
             model_inputs = qwen_tokenizer([text_prompt], return_tensors="pt").to(device)
             with torch.no_grad():
@@ -253,12 +263,13 @@ Answer:"""
         text_prompt = qwen_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
         print(f"Génération RAG pour: {question}...")
-        try:
+        
+        if is_vllm:
             # vLLM path
             sampling_params = SamplingParams(temperature=0.3, max_tokens=512)
             outputs = qwen_model.generate([text_prompt], sampling_params)
             answer = outputs[0].outputs[0].text
-        except AttributeError:
+        else:
             # Fallback transformers path
             model_inputs = qwen_tokenizer([text_prompt], return_tensors="pt").to(device)
             with torch.no_grad():
