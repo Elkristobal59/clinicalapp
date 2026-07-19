@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY requirements.txt .
+COPY requirements-frontend.txt .
 
 # Install python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-frontend.txt
 
 # Install Playwright browsers (chromium only to save space)
 RUN playwright install chromium
