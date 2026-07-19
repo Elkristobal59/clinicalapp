@@ -44,7 +44,13 @@ L'application sera accessible sur le port `8501`.
    ```
    > 💡 **Smart Fallback (vLLM)** : L'API détecte automatiquement votre matériel au lancement. 
    > - **Si un GPU est détecté** : Le serveur active le moteur haute-performance **vLLM** (paramétré pour prendre 70% de la VRAM, laissant 30% pour BioBERT), garantissant des vitesses de génération fulgurantes.
-   > - **Si vous êtes sur CPU** : L'API bascule silencieusement sur la librairie `transformers` native pour permettre le développement et les tests locaux sans planter.
+   > - **Si vous êtes sur CPU** : L'API bascule silencieusement sur la librairie `transformers` native pour permettre le développement et les tests locaux sans planter (en contournant les bugs liés à la librairie `accelerate`).
+
+   > 🛠️ **Dépannage (Troubleshooting)** :
+   > Si vous rencontrez une erreur `ValueError: numpy.dtype size changed` (généralement liée à **MLflow** ou **Pandas**), c'est un conflit de versions. Résolvez-le simplement en forçant la version 1.x de Numpy :
+   > ```bash
+   > pip install "numpy<2"
+   > ```
 
 3. Exposez le port (via localtunnel ou proxy) et renseignez l'URL dans la variable d'environnement `LIGHTNING_AI_API_URL` du client.
 
