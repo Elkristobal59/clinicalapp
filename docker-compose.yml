@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  streamlit-client:
+    build: .
+    container_name: clinical-trials-client
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./.env:/app/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
