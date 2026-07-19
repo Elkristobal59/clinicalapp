@@ -29,8 +29,9 @@ L'application suit une architecture Client/Serveur découplée :
 
 ## 📂 Déploiement
 
-### Déploiement du Client (Docker)
+### Déploiement du Client (Docker / Render)
 L'interface utilisateur est entièrement dockerisée et prête à être déployée (Render, Heroku, DigitalOcean...) :
+Le projet dispose d'un `requirements-frontend.txt` allégé pour le conteneur Docker afin d'éviter l'installation inutile des dépendances GPU lourdes (PyTorch, vLLM) sur le serveur web.
 ```bash
 docker-compose up --build
 ```
@@ -55,8 +56,21 @@ L'application sera accessible sur le port `8501`.
    >   ```bash
    >   echo 'SUPABASE_DATABASE_URL="postgresql://postgres.[VOTRE_ID]:[MOT_DE_PASSE]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"' > .env
    >   ```
+   > - **Erreur `AssertionError: Found 2 libcudnn.so.x`** : Lors du passage sur GPU, PyTorch peut télécharger des pilotes NVIDIA en double qui font planter vLLM. Nettoyez avec :
+   >   ```bash
+   >   pip uninstall -y nvidia-cudnn-cu11 nvidia-cudnn-cu12
+   >   pip install nvidia-cudnn-cu12
+   >   ```
+   > - **Erreur `address already in use`** (sur le port 8000) : Un ancien serveur uvicorn tourne en tâche de fond. Tuez-le avec :
+   >   ```bash
+   >   fuser -k 8000/tcp
+   >   ```
 
-3. Exposez le port (via localtunnel ou proxy) et renseignez l'URL dans la variable d'environnement `LIGHTNING_AI_API_URL` du client.
+3. Exposez le port (via localtunnel) avec un sous-domaine fixe pour ne pas avoir à changer la variable d'environnement du frontend tous les jours :
+   ```bash
+   lt --port 8000 --subdomain protocole-clinique-api
+   ```
+4. Renseignez l'URL générée (`https://protocole-clinique-api.loca.lt`) dans la variable d'environnement `LIGHTNING_AI_API_URL` de votre client web (sur Render).
 
 ### Infrastructure as Code (Terraform)
 Le dossier `terraform/` contient les scripts pour générer la structure de la base de données Supabase automatiquement (`main.tf`, `schema.sql`).
