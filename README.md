@@ -47,10 +47,14 @@ L'application sera accessible sur le port `8501`.
    > - **Si vous êtes sur CPU** : L'API bascule silencieusement sur la librairie `transformers` native pour permettre le développement et les tests locaux sans planter (en contournant les bugs liés à la librairie `accelerate`).
 
    > 🛠️ **Dépannage (Troubleshooting)** :
-   > Si vous rencontrez une erreur `ValueError: numpy.dtype size changed` (généralement liée à **MLflow** ou **Pandas**), c'est un conflit de versions. Résolvez-le simplement en forçant la version 1.x de Numpy :
-   > ```bash
-   > pip install "numpy<2"
-   > ```
+   > - **Erreur `numpy.dtype size changed`** (liée à **MLflow** ou **Pandas**) : C'est un conflit de versions dû à l'installation de vLLM. Résolvez-le en forçant la version 1.x de Numpy :
+   >   ```bash
+   >   pip install "numpy<2"
+   >   ```
+   > - **Erreur `psycopg2.OperationalError: connection to server on socket...`** : L'API ne trouve pas votre URL Supabase car le fichier `.env` n'existe pas sur la machine distante. Créez-le à la racine avec vos identifiants :
+   >   ```bash
+   >   echo 'SUPABASE_DATABASE_URL="postgresql://postgres.[VOTRE_ID]:[MOT_DE_PASSE]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"' > .env
+   >   ```
 
 3. Exposez le port (via localtunnel ou proxy) et renseignez l'URL dans la variable d'environnement `LIGHTNING_AI_API_URL` du client.
 
