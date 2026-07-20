@@ -199,11 +199,12 @@ with tab1:
                                     pdf_link = f"{supabase_url}/storage/v1/object/public/clinical_pdfs/{doc_id}.pdf"
                                     st.markdown(f"**📥 Archive PDF :** [Télécharger depuis Supabase]({pdf_link}) *(Uniquement si scrapé en Plan B)*")
                             st.json(ext)
-                        # Préparation des données pour Excel
-                        meds = ", ".join([m.get("name", "") for m in ext.get("medications", []) if isinstance(m, dict)]) if isinstance(ext, dict) else ""
+                        # Extraction robuste pour gérer les listes de dictionnaires OU les listes de strings
+                        meds_list = ext.get("medications", []) if isinstance(ext, dict) else []
+                        meds = ", ".join([str(m.get("name", m.get("description", ""))) if isinstance(m, dict) else str(m) for m in meds_list])
                         
-                        # Fix: les critères utilisent la clé 'description', pas 'condition'
-                        criteria = ", ".join([c.get("description", "") for c in ext.get("inclusion_criteria", []) if isinstance(c, dict)]) if isinstance(ext, dict) else ""
+                        criteria_list = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
+                        criteria = ", ".join([str(c.get("description", c.get("category", ""))) if isinstance(c, dict) else str(c) for c in criteria_list])
                         
                         condition = ext.get("condition", "") if isinstance(ext, dict) else ""
                         
