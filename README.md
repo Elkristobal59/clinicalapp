@@ -63,11 +63,11 @@ L'application sera accessible sur le port `8501`.
    ```
 3. Exposez le port via localtunnel (dans un second terminal) :
    ```bash
-   npx localtunnel --port 8000 --subdomain api-clinique-votre-nom
+   npx localtunnel --port 8000 --subdomain protocole-clinique-api
    ```
    *(💡 Note : `lt` est l'abréviation de `localtunnel`. `npx localtunnel` télécharge et exécute le tunnel à la volée s'il n'est pas installé globalement).*
 
-4. Renseignez l'URL générée (ex: `https://api-clinique-votre-nom.loca.lt`) dans la barre latérale de l'interface Streamlit.
+4. Renseignez l'URL générée (`https://protocole-clinique-api.loca.lt`) dans la barre latérale de l'interface Streamlit.
 
 ### Infrastructure as Code (Terraform)
 Le dossier `terraform/` contient les scripts pour générer la structure de la base de données Supabase automatiquement (`main.tf`, `schema.sql`).
