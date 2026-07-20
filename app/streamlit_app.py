@@ -159,9 +159,14 @@ with tab1:
                             if response.status_code == 200:
                                 data = response.json()
                                 try:
-                                    data["extraction"] = json.loads(data["extraction"])
+                                    # Essayer de parser le JSON (même si le LLM a oublié quelques virgules)
+                                    cleaned_ext = data["extraction"].replace('"\n"', '",\n"').replace(']\n"', '],\n"').replace('}\n"', '},\n"')
+                                    data["extraction"] = json.loads(cleaned_ext)
                                 except:
-                                    pass
+                                    try:
+                                        data["extraction"] = json.loads(data["extraction"])
+                                    except:
+                                        pass
                                 results.append(data)
                                 st.session_state.extracted_docs.append(data["document"])
                             else:
@@ -193,7 +198,10 @@ with tab1:
                             st.json(ext)
                         # Préparation des données pour Excel
                         meds = ", ".join([m.get("name", "") for m in ext.get("medications", []) if isinstance(m, dict)]) if isinstance(ext, dict) else ""
-                        criteria = ", ".join([c.get("condition", "") for c in ext.get("inclusion_criteria", []) if isinstance(c, dict)]) if isinstance(ext, dict) else ""
+                        
+                        # Fix: les critères utilisent la clé 'description', pas 'condition'
+                        criteria = ", ".join([c.get("description", "") for c in ext.get("inclusion_criteria", []) if isinstance(c, dict)]) if isinstance(ext, dict) else ""
+                        
                         condition = ext.get("condition", "") if isinstance(ext, dict) else ""
                         
                         flattened_data.append({
@@ -210,7 +218,8 @@ with tab1:
                     df = pd.DataFrame(flattened_data)
                     st.dataframe(df, use_container_width=True)
                     
-                    csv = df.to_csv(index=False, sep=';').encode('utf-8')
+                    # Fix: Utilisation de utf-8-sig pour que Excel lise bien les accents
+                    csv = df.to_csv(index=False, sep=';').encode('utf-8-sig')
                     st.download_button(
                         label="📥 Exporter les extractions (Excel/CSV)",
                         data=csv,
