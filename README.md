@@ -10,7 +10,7 @@ L'application suit une architecture hautement optimisée, gérant intelligemment
   - Si le texte structuré (`eligibilityCriteria`) est disponible, il est envoyé directement à l'IA pour une extraction foudroyante (< 1 seconde).
   - *Fallback (Plan B)* : Si le texte est manquant, l'application lance un scraper furtif (Playwright) pour télécharger le PDF officiel de l'essai.
 - **Stockage Cloud (Supabase Storage)** : Dans le cas du "Plan B" (PDF téléchargé), le fichier est automatiquement sauvegardé dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
-- **Extraction RAG Hybride (BioBERT + Qwen)** : Le PDF ou le texte brut passe par notre pipeline IA. **BioBERT** fragmente le texte et trouve les paragraphes clés pertinents (Embedding vectoriel). Le LLM léger **Qwen-1.5B** prend ensuite le relais pour lire ce contexte ultra-ciblé et formater la sortie en un fichier JSON structuré parfait.
+- **Extraction RAG Hybride (BioBERT + Qwen)** : Le PDF ou le texte brut passe par notre pipeline IA. **BioBERT** fragmente le texte et trouve les paragraphes clés pertinents (Embedding vectoriel). Le LLM génératif **Qwen-7B** prend ensuite le relais pour lire ce contexte ultra-ciblé et formater la sortie en un fichier JSON structuré parfait.
 - **Tableau de Bord Médical** : Les données structurées (Maladie, Médicaments, Critères d'inclusion) sont exposées au médecin via une interface Pandas/Streamlit (`st.dataframe`).
 - **Base Vectorielle** : Supabase avec l'extension `pgvector` et un index HNSW.
 - **Monitoring** : `MLflow` pour le suivi des performances (latence, prompts, JSON de sortie).
@@ -67,7 +67,7 @@ Si un membre du jury vous pose une question piège ou si vous avez un doute pend
 > L'API doit être prête à servir les deux onglets simultanément. Si BioBERT est parfait pour l'extraction (Onglet 1), il est en revanche **incapable de formuler des phrases**. Le modèle Qwen est donc chargé en VRAM car il est le seul à pouvoir lire les résultats de BioBERT et générer une réponse en bon français pour le **Chatbot RAG (Onglet 2)**.
 
 > **❓ "Le chatbot RAG commence à répéter les mêmes mots en boucle ?"**
-> Les petits modèles de langage locaux (comme Qwen-1.5B) peuvent halluciner et boucler indéfiniment s'ils ne trouvent pas de réponse claire.
+> Les modèles de langage locaux (comme Qwen-7B) peuvent halluciner et boucler indéfiniment s'ils ne trouvent pas de réponse claire.
 > 👉 **Solution** : Nous avons configuré une pénalité (`repetition_penalty = 1.1`) dans les paramètres d'inférence de l'API (`vLLM`) pour lui interdire formellement de répéter les mêmes séquences de mots. L'assistant est désormais stable.
 
 > **❓ "Comment tester le téléchargement des PDF si tout passe rapidement par le JSON (Plan A) ?"**
