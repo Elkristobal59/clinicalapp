@@ -25,12 +25,13 @@ Pour l'onglet RAG, la génération de texte par le LLM (Qwen-1.5B) est propulsé
 Chaque action dans l'application (extraction d'un PDF ou question posée au RAG) est loguée dans **MLflow**.
 
 **Pour ouvrir l'interface MLflow :**
-1. Sur votre instance Lightning AI, ouvrez un nouveau terminal.
-2. Tapez la commande suivante pour lancer le dashboard :
+1. Sur votre instance Lightning AI, ouvrez un terminal et lancez le serveur :
    ```bash
-   mlflow ui --host 0.0.0.0 --port 5000
+   mlflow ui --host 0.0.0.0 --port 5000 --allowed-hosts "*"
    ```
-3. Si vous avez besoin d'exposer ce port à internet pour y accéder depuis votre navigateur (comme pour l'API), utilisez un autre tunnel local :
+   *(L'argument `--allowed-hosts "*"` évite les blocages de sécurité récents de MLflow).*
+2. **Méthode recommandée (Lightning Studio)** : Ouvrez simplement le menu "Port Viewer" à droite de l'interface Lightning et cliquez sur le port `5000`. C'est instantané et sans sécurité bloquante !
+3. **Alternative (Tunnel Local)** : Exposez le port via localtunnel dans un autre terminal :
    ```bash
    npx localtunnel --port 5000 --subdomain mlflow-clinique
    ```
