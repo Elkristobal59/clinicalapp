@@ -21,8 +21,12 @@ except ImportError:
 
 st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
 
+# Image d'en-tête (Bannière médicale)
+st.image("https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&q=80&w=2000", use_column_width=True)
+
 st.title("🫀 Moteur d'Extraction & Chatbot Clinique")
-st.markdown("Architecture de bout en bout avec GPU, Supabase, et MLflow.")
+st.markdown("### Architecture de bout en bout avec GPU, BioBERT, et Qwen-1.5B")
+st.markdown("---")
 
 # Initialisation de l'état
 if "extracted_docs" not in st.session_state:
@@ -155,6 +159,7 @@ with tab1:
 
 with tab2:
     st.header("2. Assistant Chatbot RAG")
+    st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000", use_column_width=True)
     st.markdown("Posez vos questions sur les essais cliniques indexés en base.")
     
     doc_filter = st.selectbox("Filtrer par essai clinique (Optionnel) :", ["Toute la base"] + st.session_state.extracted_docs)
