@@ -20,7 +20,7 @@ app = FastAPI(title="Clinical Trials AI Extraction API (Phase 3)")
 
 SUPABASE_DB_URL = os.getenv("SUPABASE_DATABASE_URL")
 BIOBERT_MODEL = "dmis-lab/biobert-v1.1"
-QWEN_MODEL = "Qwen/Qwen1.5-1.8B-Chat"
+QWEN_MODEL = "Qwen/Qwen1.5-7B-Chat"  # Upgraded for the demo! (Requires ~14GB VRAM)
 
 # Variables globales pour stocker les modèles
 device = None
