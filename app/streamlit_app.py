@@ -182,8 +182,15 @@ with tab1:
                         ext = res.get("extraction", {})
                         
                         with st.expander(f"📄 Essai: {doc_id} - Pathologie: {disease}", expanded=True):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown(f"**🌐 Source Officielle :** [Voir sur ClinicalTrials.gov](https://clinicaltrials.gov/study/{doc_id})")
+                            with col2:
+                                supabase_url = os.getenv("SUPABASE_API_URL", "").rstrip("/")
+                                if supabase_url:
+                                    pdf_link = f"{supabase_url}/storage/v1/object/public/clinical_pdfs/{doc_id}.pdf"
+                                    st.markdown(f"**📥 Archive PDF :** [Télécharger depuis Supabase]({pdf_link}) *(Uniquement si scrapé en Plan B)*")
                             st.json(ext)
-                            
                         # Préparation des données pour Excel
                         meds = ", ".join([m.get("name", "") for m in ext.get("medications", []) if isinstance(m, dict)]) if isinstance(ext, dict) else ""
                         criteria = ", ".join([c.get("condition", "") for c in ext.get("inclusion_criteria", []) if isinstance(c, dict)]) if isinstance(ext, dict) else ""
