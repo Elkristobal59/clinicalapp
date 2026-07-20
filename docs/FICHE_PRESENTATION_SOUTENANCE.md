@@ -38,7 +38,7 @@
 ### Étape 1 : L'Ingestion Hybride (Côté Streamlit)
 Quand on tape "Lung Cancer", l'interface fait une requête à l'API du gouvernement américain (ClinicalTrials.gov) pour identifier les essais pertinents. C'est ici que notre architecture devient "intelligente" grâce à une **approche hybride en 2 plans** :
 *   **Plan A (Fast-Track) :** Le script vérifie si le JSON officiel contient déjà un bloc texte détaillé pour les *Critères d'Éligibilité* (> 100 caractères). Si oui, on extrait directement ce texte sans rien télécharger d'autre. C'est ultra-rapide.
-*   **Plan B (Fallback PDF) :** Si le texte natif est manquant ou trop court, le script déclenche le scraper `Playwright` (un navigateur fantôme). Il navigue sur la page officielle, télécharge le PDF original de l'essai, l'envoie **directement dans notre bucket Cloud Supabase** (dossier `clinical_pdfs`) pour le sauvegarder, puis l'envoie au serveur GPU.
+*   **Plan B (Fallback PDF ou Choix Utilisateur) :** Si le texte natif est manquant (ou si l'utilisateur coche l'option de forçage manuel sur l'interface), le script déclenche le scraper `Playwright` (un navigateur fantôme). Il navigue sur la page officielle, télécharge le PDF original de l'essai, l'envoie **directement dans notre bucket Cloud Supabase** (dossier `clinical_pdfs`) pour le sauvegarder, puis l'envoie au serveur GPU.
 
 ### Étape 2 : L'Inférence IA sur GPU (Côté Lightning.ai)
 Le backend (FastAPI) reçoit soit du texte pur, soit le fichier PDF. 

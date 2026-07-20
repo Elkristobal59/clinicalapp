@@ -66,6 +66,13 @@ Si un membre du jury vous pose une question piège ou si vous avez un doute pend
 > **❓ "Si l'onglet 1 n'utilise que BioBERT, pourquoi l'API charge-t-elle le LLM Qwen au démarrage ?"**
 > L'API doit être prête à servir les deux onglets simultanément. Si BioBERT est parfait pour l'extraction (Onglet 1), il est en revanche **incapable de formuler des phrases**. Le modèle Qwen est donc chargé en VRAM car il est le seul à pouvoir lire les résultats de BioBERT et générer une réponse en bon français pour le **Chatbot RAG (Onglet 2)**.
 
+> **❓ "Le chatbot RAG commence à répéter les mêmes mots en boucle ?"**
+> Les petits modèles de langage locaux (comme Qwen-1.5B) peuvent halluciner et boucler indéfiniment s'ils ne trouvent pas de réponse claire.
+> 👉 **Solution** : Nous avons configuré une pénalité (`repetition_penalty = 1.1`) dans les paramètres d'inférence de l'API (`vLLM`) pour lui interdire formellement de répéter les mêmes séquences de mots. L'assistant est désormais stable.
+
+> **❓ "Comment tester le téléchargement des PDF si tout passe rapidement par le JSON (Plan A) ?"**
+> Pour les besoins de la démonstration, nous avons ajouté une option **"Ignorer le texte natif et forcer le scraping PDF (Plan B)"** directement dans l'interface Streamlit. Cochez-la pour forcer le lancement du navigateur fantôme et l'upload dans Supabase !
+
 > **❓ "J'ai l'erreur `[Errno 98] Address already in use` quand je lance MLflow ou l'API ?"**
 > Cela signifie que vous avez fermé le terminal avec la croix au lieu de faire `Ctrl+C`, le processus tourne donc toujours de manière invisible.
 > 👉 **Solution** : Tapez `pkill -f "mlflow"` ou `pkill -f "uvicorn"` pour tuer les processus fantômes, puis relancez.
