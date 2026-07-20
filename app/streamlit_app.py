@@ -86,7 +86,7 @@ tab1, tab2 = st.tabs(["📄 Extraction & Ingestion", "💬 Chatbot RAG"])
 
 with tab1:
     st.header("1. Ingestion & Extraction")
-    query = st.text_input("Quelle maladie investiguer ? (ex: Cardiology, Breast Cancer)")
+    query = st.text_input("Quelle maladie investiguer ? (ex: Breast Cancer, Alzheimer's, Melanoma, Lupus, Cardiology...)")
     max_results = st.slider("Nombre d'essais cliniques à extraire :", min_value=1, max_value=10, value=2)
     
     if st.button("Lancer l'Extraction Complète"):
