@@ -89,6 +89,7 @@ with tab1:
     st.header("1. Ingestion & Extraction")
     query = st.text_input("Quelle maladie investiguer ? (ex: Breast Cancer, Alzheimer's, Melanoma, Lupus, Cardiology...)")
     max_results = st.slider("Nombre d'essais cliniques à extraire :", min_value=1, max_value=10, value=2)
+    force_pdf = st.checkbox("📥 Ignorer le texte natif et forcer le scraping PDF (Plan B)")
     
     if st.button("Lancer l'Extraction Complète"):
         if query and run_scraper:
@@ -114,7 +115,7 @@ with tab1:
                     nct_id = study.get("protocolSection", {}).get("identificationModule", {}).get("nctId")
                     try:
                         eligibility = study["protocolSection"]["eligibilityModule"]["eligibilityCriteria"]
-                        if len(eligibility) > 100:
+                        if len(eligibility) > 100 and not force_pdf:
                             tasks.append({"type": "text", "nct_id": nct_id, "text": eligibility})
                             continue
                     except KeyError:
