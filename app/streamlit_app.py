@@ -176,21 +176,27 @@ with tab1:
                                     
                             if response.status_code == 200:
                                 data = response.json()
-                                try:
-                                    raw_text = data["extraction"].strip()
-                                    # Nettoyage des backticks markdown (ex: ```json ... ```)
+                                
+                                raw_text = data.get("extraction", "")
+                                if isinstance(raw_text, str):
+                                    raw_text = raw_text.strip()
+                                    # Regex agressive pour trouver TOUT ce qui ressemble à un dictionnaire JSON
                                     import re
-                                    json_match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
-                                    if json_match:
-                                        raw_text = json_match.group(1)
-                                    
-                                    cleaned_ext = raw_text.replace('"\n"', '",\n"').replace(']\n"', '],\n"').replace('}\n"', '},\n"')
-                                    data["extraction"] = json.loads(cleaned_ext)
-                                except:
-                                    try:
-                                        data["extraction"] = json.loads(raw_text)
-                                    except:
-                                        data["extraction"] = {"erreur": "Le LLM n'a pas retourné un JSON valide", "raw_output": raw_text}
+                                    match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
+                                    if match:
+                                        potential_json = match.group(1)
+                                        try:
+                                            # On nettoie un peu au cas où
+                                            cleaned = potential_json.replace('"\n"', '",\n"').replace(']\n"', '],\n"').replace('}\n"', '},\n"')
+                                            data["extraction"] = json.loads(cleaned)
+                                        except Exception:
+                                            try:
+                                                data["extraction"] = json.loads(potential_json)
+                                            except Exception:
+                                                data["extraction"] = {"parse_error": "JSON invalide", "raw": raw_text}
+                                    else:
+                                        data["extraction"] = {"parse_error": "Aucun { trouvé", "raw": raw_text}
+                                
                                 results.append(data)
                                 st.session_state.extracted_docs.append(data["document"])
                             else:
@@ -198,7 +204,7 @@ with tab1:
                         except Exception as e:
                             st.error(f"Impossible de traiter l'essai {nct_id} : {e}")
                             
-                    st.success(f"✅ Inférence GPU terminée en {time.time() - start_time:.1f}s")
+                    st.success(f"✅ Inférence GPU terminée (V2) en {time.time() - start_time:.1f}s")
                 
                 # Sauvegarde en mémoire pour survivre au changement d'onglet
                 st.session_state.latest_results = results
