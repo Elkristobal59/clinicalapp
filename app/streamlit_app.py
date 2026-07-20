@@ -21,11 +21,11 @@ except ImportError:
 
 st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
 
-# Image d'en-tête (Bannière médicale)
-st.image("https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&q=80&w=2000", use_column_width=True)
+# Image d'en-tête (Bannière médicale tech)
+st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000", use_container_width=True)
 
 st.title("🫀 Moteur d'Extraction & Chatbot Clinique")
-st.markdown("### Architecture de bout en bout avec GPU, BioBERT, et Qwen-1.5B")
+st.markdown("### Architecture de bout en bout (Pipeline Full BioBERT)")
 st.markdown("---")
 
 # Initialisation de l'état
@@ -73,7 +73,7 @@ with st.sidebar.expander("🚀 Extensions (Nice to have)", expanded=False):
 st.sidebar.markdown("---")
 st.sidebar.header("Configuration API")
 st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (GPU)")
-st.sidebar.metric(label="Modèles", value="BioBERT-NER + Qwen-1.5B")
+st.sidebar.metric(label="Modèle", value="Full BioBERT")
 st.sidebar.info("Cette interface héberge Streamlit et le scraping, et délègue l'intelligence (Extraction & RAG) au GPU via l'API.")
 api_url = st.sidebar.text_input("URL de l'API Lightning AI:", value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"), key="api_url_input")
 
@@ -159,7 +159,7 @@ with tab1:
 
 with tab2:
     st.header("2. Assistant Chatbot RAG")
-    st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000", use_column_width=True)
+    st.image("https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000", use_container_width=True)
     st.markdown("Posez vos questions sur les essais cliniques indexés en base.")
     
     doc_filter = st.selectbox("Filtrer par essai clinique (Optionnel) :", ["Toute la base"] + st.session_state.extracted_docs)
