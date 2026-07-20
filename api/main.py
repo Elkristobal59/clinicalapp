@@ -67,7 +67,8 @@ async def startup_event():
     conn = psycopg2.connect(SUPABASE_DB_URL)
     
     print("Configuration MLflow...")
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mlflow.db"))
+    mlflow.set_tracking_uri(f"sqlite:///{db_path}")
     mlflow.set_experiment("Clinical_Trials_Extraction")
     
     print("✅ Serveur Prêt.")
