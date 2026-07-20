@@ -14,10 +14,11 @@ import streamlit as st
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    from scripts.live_scraper import run_scraper
+    from scripts.live_scraper import run_scraper, download_pdf_for_nctid
 except ImportError:
     st.error("Impossible d'importer le scraper. Assurez-vous que scripts/live_scraper.py existe.")
     run_scraper = None
+    download_pdf_for_nctid = None
 
 st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
 
@@ -93,28 +94,68 @@ with tab1:
         if query and run_scraper:
             query = query.strip()
             
-            with st.spinner("Étape 1/2 : Scraping furtif des serveurs cliniques en cours (Playwright)..."):
+            with st.spinner("Étape 1/2 : Récupération des données cliniques (JSON natif et/ou PDF)..."):
                 start_time = time.time()
-                output_dir = run_scraper(query, max_results=max_results)
-                st.success(f"✅ Scraping terminé en {time.time() - start_time:.1f}s")
+                output_dir = os.path.abspath(f"data/live_pdfs_{query.replace(' ', '_')}")
+                os.makedirs(output_dir, exist_ok=True)
                 
-            pdfs = glob.glob(os.path.join(output_dir, "*.pdf"))[:max_results]
-            
-            if not pdfs:
-                st.warning("Aucun PDF trouvé lors du scraping.")
+                # Appeler l'API officielle
+                api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?query.cond={query}&pageSize={max_results}&fields=NCTId,ProtocolSection"
+                try:
+                    resp = requests.get(api_url_ct, timeout=10)
+                    ct_data = resp.json()
+                    studies = ct_data.get("studies", [])
+                except Exception as e:
+                    studies = []
+                    st.error(f"Erreur API ClinicalTrials: {e}")
+                
+                tasks = []
+                for study in studies:
+                    nct_id = study.get("protocolSection", {}).get("identificationModule", {}).get("nctId")
+                    try:
+                        eligibility = study["protocolSection"]["eligibilityModule"]["eligibilityCriteria"]
+                        if len(eligibility) > 100:
+                            tasks.append({"type": "text", "nct_id": nct_id, "text": eligibility})
+                            continue
+                    except KeyError:
+                        pass
+                    # Fallback sur le PDF
+                    tasks.append({"type": "pdf", "nct_id": nct_id})
+                
+                st.success(f"✅ Données récupérées (ou identifiées) en {time.time() - start_time:.1f}s")
+                
+            if not tasks:
+                st.warning("Aucun essai trouvé pour cette requête.")
             else:
-                with st.spinner(f"Étape 2/2 : Envoi de {len(pdfs)} PDF(s) au serveur GPU (Full BioBERT) & MLflow..."):
+                with st.spinner(f"Étape 2/2 : Envoi de {len(tasks)} protocoles au serveur GPU (Full BioBERT) & MLflow..."):
                     start_time = time.time()
                     results = []
-                    for pdf in pdfs:
+                    
+                    for task in tasks:
+                        nct_id = task["nct_id"]
                         try:
-                            with open(pdf, "rb") as f:
+                            if task["type"] == "text":
+                                # Mode rapide : Texte direct
                                 response = requests.post(
-                                    f"{api_url}/process_pdf",
-                                    files={"file": (os.path.basename(pdf), f, "application/pdf")},
-                                    data={"disease": query},
+                                    f"{api_url}/process_text",
+                                    data={"disease": query, "document_id": nct_id, "text_content": task["text"]},
                                     headers={"Bypass-Tunnel-Reminder": "true"}
                                 )
+                            else:
+                                # Mode fallback : Téléchargement PDF puis envoi
+                                pdf_path = download_pdf_for_nctid(nct_id, output_dir) if download_pdf_for_nctid else None
+                                if pdf_path and os.path.exists(pdf_path):
+                                    with open(pdf_path, "rb") as f:
+                                        response = requests.post(
+                                            f"{api_url}/process_pdf",
+                                            files={"file": (os.path.basename(pdf_path), f, "application/pdf")},
+                                            data={"disease": query},
+                                            headers={"Bypass-Tunnel-Reminder": "true"}
+                                        )
+                                else:
+                                    st.warning(f"Impossible de trouver le texte ou le PDF pour l'essai {nct_id}")
+                                    continue
+                                    
                             if response.status_code == 200:
                                 data = response.json()
                                 try:
@@ -124,9 +165,10 @@ with tab1:
                                 results.append(data)
                                 st.session_state.extracted_docs.append(data["document"])
                             else:
-                                st.error(f"Erreur API ({response.status_code}): {response.text}")
+                                st.error(f"Erreur API ({response.status_code}) pour {nct_id}: {response.text}")
                         except Exception as e:
-                            st.error(f"Impossible de se connecter au Serveur GPU : {e}")
+                            st.error(f"Impossible de traiter l'essai {nct_id} : {e}")
+                            
                     st.success(f"✅ Inférence GPU terminée en {time.time() - start_time:.1f}s")
                 
                 # Affichage
@@ -156,8 +198,11 @@ with tab1:
                         })
                     
                     st.markdown("---")
+                    st.subheader("📊 Tableau de Bord Clinique")
                     import pandas as pd
                     df = pd.DataFrame(flattened_data)
+                    st.dataframe(df, use_container_width=True)
+                    
                     csv = df.to_csv(index=False, sep=';').encode('utf-8')
                     st.download_button(
                         label="📥 Exporter les extractions (Excel/CSV)",

@@ -84,31 +84,10 @@ def get_biobert_embedding(text):
     emb = torch.nn.functional.normalize(emb, p=2, dim=1)
     return emb[0].cpu().tolist()
 
-@app.post("/process_pdf")
-async def process_pdf(
-    file: UploadFile = File(...),
-    disease: str = Form(...)
-):
-    """
-    Route principale qui :
-    1. Reçoit le PDF.
-    2. L'encode dans Supabase via BioBERT.
-    3. Fait l'extraction sémantique via Qwen.
-    """
+def process_extracted_text(text: str, filename: str, disease: str, start_time: float) -> dict:
+    global conn, cur, biobert_model, biobert_tokenizer, qwen_model, qwen_tokenizer, device, is_vllm
     cur = None
-    start_time = time.time()
     try:
-        # --- 1. LECTURE DU PDF EN MEMOIRE ---
-        content = await file.read()
-        doc = fitz.open(stream=content, filetype="pdf")
-        text = ""
-        for page_num in range(len(doc)):
-            text += doc.load_page(page_num).get_text() + "\n"
-        doc.close()
-        
-        filename = file.filename.replace(".pdf", "")
-        print(f"PDF {filename} reçu, extraction de texte terminée.")
-        
         # --- 2. CHUNKING & INGESTION (BioBERT) ---
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200, length_function=len)
         chunks = text_splitter.split_text(text)
@@ -211,6 +190,71 @@ Response (JSON only):
                 cur.close()
             except:
                 pass
+
+
+@app.post("/process_text")
+async def process_text(
+    disease: str = Form(...),
+    document_id: str = Form(...),
+    text_content: str = Form(...)
+):
+    """
+    Route optimisée qui reçoit directement le JSON/texte de l'API ClinicalTrials.
+    Ignore l'extraction PyMuPDF, ce qui est 10x plus rapide.
+    """
+    start_time = time.time()
+    print(f"Réception du texte direct pour l'essai {document_id}")
+    return process_extracted_text(text=text_content, filename=document_id, disease=disease, start_time=start_time)
+
+
+@app.post("/process_pdf")
+async def process_pdf(
+    file: UploadFile = File(...),
+    disease: str = Form(...)
+):
+    """
+    Route principale (Fallback) qui :
+    1. Reçoit le PDF.
+    2. Sauvegarde potentiellement dans Supabase Storage.
+    3. L'encode dans Supabase via BioBERT.
+    4. Fait l'extraction sémantique via Qwen.
+    """
+    start_time = time.time()
+    try:
+        # --- 1. LECTURE DU PDF EN MEMOIRE ---
+        content = await file.read()
+        doc = fitz.open(stream=content, filetype="pdf")
+        text = ""
+        for page_num in range(len(doc)):
+            text += doc.load_page(page_num).get_text() + "\n"
+        doc.close()
+        
+        filename = file.filename.replace(".pdf", "")
+        print(f"PDF {filename} reçu, extraction de texte terminée.")
+        
+        # --- BONUS: UPLOAD PDF TO SUPABASE STORAGE ---
+        # Nécessite SUPABASE_API_URL et SUPABASE_ANON_KEY dans le .env
+        supa_url = os.getenv("SUPABASE_API_URL")
+        supa_key = os.getenv("SUPABASE_ANON_KEY")
+        if supa_url and supa_key:
+            try:
+                import requests
+                headers = {"Authorization": f"Bearer {supa_key}", "apikey": supa_key, "Content-Type": "application/pdf"}
+                # Upload dans un bucket nommé 'clinical_pdfs'
+                res = requests.put(f"{supa_url}/storage/v1/object/clinical_pdfs/{file.filename}", data=content, headers=headers)
+                if res.status_code in [200, 201]:
+                    print(f"PDF uploadé sur Supabase Storage: {file.filename}")
+                else:
+                    print(f"Erreur Supabase Storage: {res.text}")
+            except Exception as e:
+                print(f"Erreur lors de l'upload Supabase: {e}")
+                
+        # Appel de la fonction mutualisée
+        return process_extracted_text(text=text, filename=filename, disease=disease, start_time=start_time)
+
+    except Exception as e:
+        print(f"Erreur lecture PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat_rag")
 async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):

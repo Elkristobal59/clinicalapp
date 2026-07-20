@@ -113,8 +113,66 @@ def run_scraper(condition: str, max_results: int = 5) -> str:
 
     return output_dir
 
+def download_pdf_for_nctid(nct_id: str, output_dir: str) -> str:
+    """
+    Télécharge le PDF pour un NCT ID spécifique.
+    Retourne le chemin du fichier téléchargé ou None si échec.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        
+    import threading
+    if threading.current_thread() != threading.main_thread():
+        # Subprocess to avoid asyncio loop issues in Streamlit
+        import subprocess, sys
+        res = subprocess.run([sys.executable, __file__, "FETCH_ID", nct_id, output_dir], capture_output=True, text=True)
+        # Parse output for filepath
+        for line in res.stdout.split('\n'):
+            if line.startswith("DOWNLOADED:"):
+                return line.split("DOWNLOADED:")[1].strip()
+        return None
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            study_url = f"https://clinicaltrials.gov/study/{nct_id}"
+            
+            page.goto(study_url, wait_until="networkidle", timeout=30000)
+            links = page.locator("a")
+            count = links.count()
+            
+            for i in range(count):
+                href = links.nth(i).get_attribute("href")
+                if href and (".pdf" in href.lower() or "large-docs" in href.lower()):
+                    try:
+                        with page.expect_download(timeout=15000) as download_info:
+                            links.nth(i).click(force=True)
+                        download = download_info.value
+                        
+                        safe_name = download.suggested_filename
+                        if not safe_name.endswith(".pdf"):
+                            safe_name += ".pdf"
+                            
+                        filepath = os.path.join(output_dir, f"{nct_id}_{safe_name}")
+                        download.save_as(filepath)
+                        browser.close()
+                        print(f"DOWNLOADED:{filepath}")
+                        return filepath
+                    except Exception:
+                        pass
+            browser.close()
+    except Exception as e:
+        print(f"Erreur téléchargement pour {nct_id}: {e}")
+    return None
+
 if __name__ == "__main__":
     import sys
-    cond = sys.argv[1] if len(sys.argv) > 1 else "Breast Cancer"
-    m_res = int(sys.argv[2]) if len(sys.argv) > 2 else 2
-    run_scraper(cond, m_res)
+    if len(sys.argv) > 1 and sys.argv[1] == "FETCH_ID":
+        nct_id = sys.argv[2]
+        out_dir = sys.argv[3]
+        download_pdf_for_nctid(nct_id, out_dir)
+    else:
+        cond = sys.argv[1] if len(sys.argv) > 1 else "Breast Cancer"
+        m_res = int(sys.argv[2]) if len(sys.argv) > 2 else 2
+        run_scraper(cond, m_res)
