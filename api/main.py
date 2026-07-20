@@ -310,14 +310,14 @@ Answer:"""
         
         if is_vllm:
             # vLLM path
-            sampling_params = SamplingParams(temperature=0.3, max_tokens=512)
+            sampling_params = SamplingParams(temperature=0.3, max_tokens=512, repetition_penalty=1.1)
             outputs = qwen_model.generate([text_prompt], sampling_params)
             answer = outputs[0].outputs[0].text
         else:
             # Fallback transformers path
             model_inputs = qwen_tokenizer([text_prompt], return_tensors="pt").to(device)
             with torch.no_grad():
-                generated_ids = qwen_model.generate(model_inputs.input_ids, max_new_tokens=512, temperature=0.3)
+                generated_ids = qwen_model.generate(model_inputs.input_ids, max_new_tokens=512, temperature=0.3, repetition_penalty=1.1)
             generated_ids = [
                 output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
             ]
