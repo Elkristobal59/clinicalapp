@@ -30,11 +30,47 @@ if "extracted_docs" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Sidebar
-st.sidebar.header("Architecture Phase 4")
+# Sidebar - Informations Projet
+st.sidebar.title("Clinical Protocols Standardization")
+st.sidebar.markdown("**Projet Jedha - Bootcamp AIFS01**")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("👨‍💻 L'Équipe")
+st.sidebar.markdown("Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau")
+
+st.sidebar.markdown("---")
+with st.sidebar.expander("📌 Objectifs & Contexte", expanded=False):
+    st.markdown("""
+    **Objectifs :** Convertir les protocoles d'essais cliniques sous forme de texte libre en jeux de données standardisés et structurés.
+    
+    Le projet se concentre sur la conception et l'implémentation de pipelines basés sur l'IA. 
+    
+    **Tâches techniques :** Création de workflows d'extraction multi-étapes avec des LLM, décomposition du contenu en concepts cliniques atomiques, recherche sémantique, plongements vectoriels (embeddings), et mapping vers des taxonomies médicales contrôlées. 
+    
+    **Tâches fonctionnelles :** Support de la curation de données cliniques, amélioration de la cohérence et de la qualité des informations extraites, et création de jeux de données prêts pour l'analyse (conception d'essais cliniques et optimisation de protocoles).
+    """)
+
+with st.sidebar.expander("⚙️ Architecture (Backbone)", expanded=False):
+    st.markdown("""
+    Extraction d’entités standardisées (NER) de protocoles cliniques à partir d’un corpus (taxonomies médicales = Chia) appris par un modèle (ex: BioBERT/RoBERTa-MIMIC) :
+    - **Entrées :** protocoles (JSON), modèles NLP
+    - **Sorties :** JSON avec les entités extraites et leurs relations
+    - **Objectif métier :** À partir des entités extraites, filtrer les études cliniques selon des critères spécifiques (âge, maladie, traitement).
+    """)
+
+with st.sidebar.expander("🚀 Extensions (Nice to have)", expanded=False):
+    st.markdown("""
+    - Faire de la recherche d’information sur un ou plusieurs protocoles avec du **RAG** (Retrieval-Augmented Generation).
+    - Comparer les performances entre LLM concurrents.
+    - Analyser les protocoles associés à différents domaines/pathologies.
+    - Fine-tuning si suffisamment de données sont disponibles.
+    """)
+
+st.sidebar.markdown("---")
+st.sidebar.header("Configuration API")
 st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (GPU)")
-st.sidebar.metric(label="Modèles", value="Qwen-1.5B + BioBERT")
-st.sidebar.info("Cette version héberge Streamlit et le scraping, et délègue l'intelligence (Extraction & RAG) au GPU via l'API.")
+st.sidebar.metric(label="Modèles", value="BioBERT-NER + Qwen-1.5B")
+st.sidebar.info("Cette interface héberge Streamlit et le scraping, et délègue l'intelligence (Extraction & RAG) au GPU via l'API.")
 api_url = st.sidebar.text_input("URL de l'API Lightning AI:", value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"), key="api_url_input")
 
 if st.session_state.api_url_input:
