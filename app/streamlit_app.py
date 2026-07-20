@@ -132,32 +132,39 @@ with tab1:
                 # Affichage
                 if results:
                     st.session_state.extracted_docs = list(set(st.session_state.extracted_docs)) # Deduplicate
+                    
+                    flattened_data = []
                     for res in results:
-                        doc_id = res.get("document", "Document")
-                        extraction = res.get("extraction", {})
+                        doc_id = res['document']
+                        disease = res.get('disease', 'N/A')
+                        ext = res.get("extraction", {})
                         
-                        with st.expander(f"📄 Essai: {doc_id} - Pathologie: {res.get('disease')}", expanded=True):
-                            if isinstance(extraction, list):
-                                # Grouper par type d'entité
-                                grouped_entities = {}
-                                for ent in extraction:
-                                    if isinstance(ent, dict) and "type" in ent and "text" in ent:
-                                        ent_type = ent["type"]
-                                        ent_text = ent["text"]
-                                        if ent_type not in grouped_entities:
-                                            grouped_entities[ent_type] = set()
-                                        grouped_entities[ent_type].add(ent_text)
-                                
-                                if not grouped_entities:
-                                    st.info("Aucune entité trouvée ou format inattendu.")
-                                else:
-                                    # Afficher chaque groupe
-                                    for ent_type, texts in grouped_entities.items():
-                                        st.markdown(f"**{ent_type} :**")
-                                        for t in texts:
-                                            st.write(f"- {t}")
-                            else:
-                                st.text(extraction)
+                        with st.expander(f"📄 Essai: {doc_id} - Pathologie: {disease}", expanded=True):
+                            st.json(ext)
+                            
+                        # Préparation des données pour Excel
+                        meds = ", ".join([m.get("name", "") for m in ext.get("medications", []) if isinstance(m, dict)]) if isinstance(ext, dict) else ""
+                        criteria = ", ".join([c.get("condition", "") for c in ext.get("inclusion_criteria", []) if isinstance(c, dict)]) if isinstance(ext, dict) else ""
+                        condition = ext.get("condition", "") if isinstance(ext, dict) else ""
+                        
+                        flattened_data.append({
+                            "Document": doc_id,
+                            "Pathologie": disease,
+                            "Condition Principale": condition,
+                            "Médicaments (Drug)": meds,
+                            "Critères (Measurement)": criteria
+                        })
+                    
+                    st.markdown("---")
+                    import pandas as pd
+                    df = pd.DataFrame(flattened_data)
+                    csv = df.to_csv(index=False, sep=';').encode('utf-8')
+                    st.download_button(
+                        label="📥 Exporter les extractions (Excel/CSV)",
+                        data=csv,
+                        file_name=f"extractions_{query.replace(' ', '_')}.csv",
+                        mime="text/csv"
+                    )
 
 with tab2:
     st.header("2. Assistant Chatbot RAG")
