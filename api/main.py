@@ -50,7 +50,8 @@ async def startup_event():
     if torch.cuda.is_available():
         try:
             print("GPU détecté -> Activation de vLLM...")
-            qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.7)
+            # Fix: Le modèle 7B prend 14Go, on augmente l'utilisation VRAM et on limite le contexte à 8192 tokens au lieu de 32768
+            qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.85, max_model_len=8192)
             is_vllm = True
         except Exception as e:
             print(f"Erreur vLLM, fallback transformers: {e}")
