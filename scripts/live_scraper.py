@@ -7,17 +7,10 @@ def run_scraper(condition: str, max_results: int = 5) -> str:
     Scrape en direct les PDFs de ClinicalTrials.gov pour une condition donnée.
     Retourne le chemin du dossier contenant les PDFs téléchargés.
     """
-    output_dir = os.path.abspath(f"d:\\AIFS01\\PROJET FINAL\\poc_solo\\data\\live_pdfs_{condition.replace(' ', '_')}")
+    output_dir = os.path.abspath(f"data/live_pdfs_{condition.replace(' ', '_')}")
     if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
 
-    # Note: Dans un environnement réel, on utiliserait l'API de ClinicalTrials.
-    # Ici, nous simulons la logique d'extraction furtive avec Playwright
-    # (Adaptation du script original pour la démo temps réel)
-    
-    if condition.lower() == "cardiology":
-        print("Scraping simulé (utilisation du cache existant pour la rapidité)")
-        return "d:\\AIFS01\\PROJET FINAL\\data\\real_pdfs\\playwright_cardio_100"
     
     import threading
     if threading.current_thread() != threading.main_thread():
