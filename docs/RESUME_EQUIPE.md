@@ -70,6 +70,10 @@ Relier l'interface utilisateur (Streamlit) tournant en local avec l'architecture
 | `ConnectionResetError` | URL native Lightning AI exige auth navigateur | Bypass via localtunnel + header `Bypass-Tunnel-Reminder` |
 | `ON CONFLICT` PostgreSQL | Contrainte `UNIQUE(chunk_id)` manquante | Ajoutée dans `init_supabase.py` et en base |
 | `transaction aborted` | Connexion PG polluée après erreur | Ajout de `conn.rollback()` dans `api/main.py` |
+| `INTERNAL_ERROR` (MLflow) | Sécurité CORS/Host de MLflow qui bloque les requêtes via Localtunnel | Ajout du flag `--disable-security-middleware` au lancement |
+| `Runs invisibles` (MLflow) | L'API et MLflow UI pointaient vers deux fichiers `mlflow.db` dans des dossiers différents | Forçage du chemin en absolu avec `os.path.abspath` dans `api/main.py` |
+| `JSON en boucle` (Qwen) | Bug classique des LLM (Repetition Loop) lors de la génération de tableaux JSON | Ajout du paramètre `repetition_penalty=1.1` dans vLLM |
+| `Erreur 502 Bad Gateway` | Timeout de sécurité de Localtunnel si l'inférence dépasse ~60s | Utilisation d'un vrai GPU (vLLM) pour maintenir l'inférence sous les 60s |
 
 ---
 

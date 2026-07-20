@@ -20,8 +20,15 @@ Pour l'onglet RAG, la génération de texte par le LLM (Qwen-1.5B) est propulsé
 - **Gestion de la VRAM** : vLLM est paramétré pour utiliser `70%` de la mémoire vidéo (`gpu_memory_utilization=0.7`). Cela garantit qu'il reste toujours `30%` de VRAM disponible pour faire tourner BioBERT en parallèle sans crash (OOM).
 - **Bénéfice** : vLLM utilise la technique du *PagedAttention* pour gérer le cache KV de manière optimale, rendant les réponses du Chatbot fluides et instantanées.
 
-## 🚀 Démarrage Rapide (Sainte Trinité des Terminaux)
+## 🚀 Démarrage Rapide
 
+**1. Cloner le projet**
+```bash
+git clone https://github.com/Elkristobal59/clinicalapp.git
+cd clinicalapp
+```
+
+**2. Lancer la Sainte Trinité des Terminaux (Lightning AI)**
 Lors du démarrage de votre instance Lightning AI, vous devez lancer l'infrastructure backend (API + GPU) et l'outil de monitoring (MLflow).
 Ouvrez 4 terminaux différents et lancez ces 4 commandes. **Il vous suffit de copier-coller, aucune URL n'est à modifier !**
 
@@ -46,7 +53,6 @@ npx localtunnel --port 5000 --subdomain mlflow-clinique-chris
 ```
 
 ✅ **C'est prêt !** 
-- L'URL de l'API est fixée sur : `https://protocole-clinique-api.loca.lt` (à insérer dans Streamlit).
 - L'URL de l'API est fixée sur : `https://protocole-clinique-api.loca.lt` (à insérer dans Streamlit).
 - Vos logs d'extractions en direct sont sur : `https://mlflow-clinique-chris.loca.lt` (cliquez sur "Click to Continue" pour y accéder).
 
