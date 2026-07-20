@@ -179,57 +179,64 @@ with tab1:
                             
                     st.success(f"✅ Inférence GPU terminée en {time.time() - start_time:.1f}s")
                 
-                # Affichage
-                if results:
-                    st.session_state.extracted_docs = list(set(st.session_state.extracted_docs)) # Deduplicate
-                    
-                    flattened_data = []
-                    for res in results:
-                        doc_id = res['document']
-                        disease = res.get('disease', 'N/A')
-                        ext = res.get("extraction", {})
-                        
-                        with st.expander(f"📄 Essai: {doc_id} - Pathologie: {disease}", expanded=True):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.markdown(f"**🌐 Source Officielle :** [Voir sur ClinicalTrials.gov](https://clinicaltrials.gov/study/{doc_id})")
-                            with col2:
-                                supabase_url = os.getenv("SUPABASE_API_URL", "").rstrip("/")
-                                if supabase_url:
-                                    pdf_link = f"{supabase_url}/storage/v1/object/public/clinical_pdfs/{doc_id}.pdf"
-                                    st.markdown(f"**📥 Archive PDF :** [Télécharger depuis Supabase]({pdf_link}) *(Uniquement si scrapé en Plan B)*")
-                            st.json(ext)
-                        # Extraction robuste pour gérer les listes de dictionnaires OU les listes de strings
-                        meds_list = ext.get("medications", []) if isinstance(ext, dict) else []
-                        meds = ", ".join([str(m.get("name", m.get("description", ""))) if isinstance(m, dict) else str(m) for m in meds_list])
-                        
-                        criteria_list = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
-                        criteria = ", ".join([str(c.get("description", c.get("category", ""))) if isinstance(c, dict) else str(c) for c in criteria_list])
-                        
-                        condition = ext.get("condition", "") if isinstance(ext, dict) else ""
-                        
-                        flattened_data.append({
-                            "Document": doc_id,
-                            "Pathologie": disease,
-                            "Condition Principale": condition,
-                            "Médicaments (Drug)": meds,
-                            "Critères (Measurement)": criteria
-                        })
-                    
-                    st.markdown("---")
-                    st.subheader("📊 Tableau de Bord Clinique")
-                    import pandas as pd
-                    df = pd.DataFrame(flattened_data)
-                    st.dataframe(df, use_container_width=True)
-                    
-                    # Fix: Utilisation de utf-8-sig pour que Excel lise bien les accents
-                    csv = df.to_csv(index=False, sep=';').encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 Exporter les extractions (Excel/CSV)",
-                        data=csv,
-                        file_name=f"extractions_{query.replace(' ', '_')}.csv",
-                        mime="text/csv"
-                    )
+                # Sauvegarde en mémoire pour survivre au changement d'onglet
+                st.session_state.latest_results = results
+                st.session_state.latest_query = query
+                
+    # Affichage (En dehors du bouton pour rester visible)
+    if getattr(st.session_state, 'latest_results', []):
+        results = st.session_state.latest_results
+        query = st.session_state.latest_query
+        
+        st.session_state.extracted_docs = list(set(st.session_state.extracted_docs)) # Deduplicate
+        
+        flattened_data = []
+        for res in results:
+            doc_id = res['document']
+            disease = res.get('disease', 'N/A')
+            ext = res.get("extraction", {})
+            
+            with st.expander(f"📄 Essai: {doc_id} - Pathologie: {disease}", expanded=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**🌐 Source Officielle :** [Voir sur ClinicalTrials.gov](https://clinicaltrials.gov/study/{doc_id})")
+                with col2:
+                    supabase_url = os.getenv("SUPABASE_API_URL", "").rstrip("/")
+                    if supabase_url:
+                        pdf_link = f"{supabase_url}/storage/v1/object/public/clinical_pdfs/{doc_id}.pdf"
+                        st.markdown(f"**📥 Archive PDF :** [Télécharger depuis Supabase]({pdf_link}) *(Uniquement si scrapé en Plan B)*")
+                st.json(ext)
+            # Extraction robuste pour gérer les listes de dictionnaires OU les listes de strings
+            meds_list = ext.get("medications", []) if isinstance(ext, dict) else []
+            meds = ", ".join([str(m.get("name", m.get("description", ""))) if isinstance(m, dict) else str(m) for m in meds_list])
+            
+            criteria_list = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
+            criteria = ", ".join([str(c.get("description", c.get("category", ""))) if isinstance(c, dict) else str(c) for c in criteria_list])
+            
+            condition = ext.get("condition", "") if isinstance(ext, dict) else ""
+            
+            flattened_data.append({
+                "Document": doc_id,
+                "Pathologie": disease,
+                "Condition Principale": condition,
+                "Médicaments (Drug)": meds,
+                "Critères (Measurement)": criteria
+            })
+        
+        st.markdown("---")
+        st.subheader("📊 Tableau de Bord Clinique")
+        import pandas as pd
+        df = pd.DataFrame(flattened_data)
+        st.dataframe(df, use_container_width=True)
+        
+        # Fix: Utilisation de utf-8-sig pour que Excel lise bien les accents
+        csv = df.to_csv(index=False, sep=';').encode('utf-8-sig')
+        st.download_button(
+            label="📥 Exporter les extractions (Excel/CSV)",
+            data=csv,
+            file_name=f"extractions_{query.replace(' ', '_')}.csv",
+            mime="text/csv"
+        )
 
 with tab2:
     st.header("2. Assistant Chatbot RAG")
