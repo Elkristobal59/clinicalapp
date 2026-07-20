@@ -56,17 +56,17 @@ L'application sera accessible sur le port `8501`.
 
 ### Déploiement Serveur (Lightning AI)
 1. Installez les dépendances (`requirements.txt`).
-2. Rendez le script de démarrage exécutable (une seule fois) :
+2. Démarrez l'API (dans un premier terminal) :
    ```bash
-   chmod +x start_api.sh
+   uvicorn api.main:app --host 0.0.0.0 --port 8000
    ```
-3. Lancez l'API et le tunnel public en une seule commande :
+3. Exposez le port via localtunnel (dans un second terminal) :
    ```bash
-   ./start_api.sh
+   npx localtunnel --port 8000 --subdomain api-clinique-votre-nom
    ```
-   *(💡 Note : Ce script lance FastAPI en arrière-plan et ouvre `localtunnel` sur le sous-domaine `protocole-clinique-api`)*.
+   *(💡 Note : `lt` est l'abréviation de `localtunnel`. `npx localtunnel` télécharge et exécute le tunnel à la volée s'il n'est pas installé globalement).*
 
-L'URL de l'API sera toujours `https://protocole-clinique-api.loca.lt` et est désormais **configurée par défaut** dans l'interface Streamlit. Plus besoin de la copier-coller à chaque fois !
+4. Renseignez l'URL générée (ex: `https://api-clinique-votre-nom.loca.lt`) dans la barre latérale de l'interface Streamlit.
 
 ### Infrastructure as Code (Terraform)
 Le dossier `terraform/` contient les scripts pour générer la structure de la base de données Supabase automatiquement (`main.tf`, `schema.sql`).
