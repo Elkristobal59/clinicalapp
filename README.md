@@ -37,7 +37,7 @@ npx localtunnel --port 8000 --subdomain protocole-clinique-api
 
 **Terminal 3 : L'Observatoire (Dashboard MLflow)**
 ```bash
-mlflow ui --host 0.0.0.0 --port 5000 --allowed-hosts "*"
+mlflow ui --host 0.0.0.0 --port 5000 --disable-security-middleware
 ```
 
 **Terminal 4 : Le Pont MLflow (Pour voir le Dashboard)**
