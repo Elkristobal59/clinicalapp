@@ -20,32 +20,40 @@ Pour l'onglet RAG, la génération de texte par le LLM (Qwen-1.5B) est propulsé
 - **Gestion de la VRAM** : vLLM est paramétré pour utiliser `70%` de la mémoire vidéo (`gpu_memory_utilization=0.7`). Cela garantit qu'il reste toujours `30%` de VRAM disponible pour faire tourner BioBERT en parallèle sans crash (OOM).
 - **Bénéfice** : vLLM utilise la technique du *PagedAttention* pour gérer le cache KV de manière optimale, rendant les réponses du Chatbot fluides et instantanées.
 
-## 📊 Suivi des Expériences (MLflow)
+## 🚀 Démarrage Rapide (Sainte Trinité des Terminaux)
 
-Chaque action dans l'application (extraction d'un PDF ou question posée au RAG) est loguée dans **MLflow**.
+Lors du démarrage de votre instance Lightning AI, vous devez lancer l'infrastructure backend (API + GPU) et l'outil de monitoring (MLflow).
+Ouvrez 4 terminaux différents et lancez ces 4 commandes. **Il vous suffit de copier-coller, aucune URL n'est à modifier !**
 
-**Pour ouvrir l'interface MLflow :**
-1. Sur votre instance Lightning AI, ouvrez un terminal et lancez le serveur :
-   ```bash
-   mlflow ui --host 0.0.0.0 --port 5000 --allowed-hosts "*"
-   ```
-   *(L'argument `--allowed-hosts "*"` évite les blocages de sécurité récents de MLflow).*
-2. **Méthode recommandée (Lightning Studio)** : Ouvrez simplement le menu "Port Viewer" à droite de l'interface Lightning et cliquez sur le port `5000`. C'est instantané et sans sécurité bloquante !
-3. **Alternative (Tunnel Local)** : Exposez le port via localtunnel dans un autre terminal :
-   ```bash
-   npx localtunnel --port 5000 --subdomain mlflow-clinique
-   ```
-4. **Dans l'interface MLflow**, vous pourrez voir en temps réel :
-   - Le temps de latence de chaque requête API.
-   - Les documents exacts traités et les paramètres (maladie).
-   - Les prompts complets envoyés au RAG et les réponses.
-   - Les JSON finaux générés par l'extraction BioBERT.
+**Terminal 1 : Le Cerveau (API & Modèles GPU)**
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
 
-## 📂 Déploiement
+**Terminal 2 : Le Pont API (Pour communiquer avec Streamlit)**
+```bash
+npx localtunnel --port 8000 --subdomain protocole-clinique-api
+```
 
-### Déploiement du Client (Docker / Render)
-L'interface utilisateur est entièrement dockerisée et prête à être déployée (Render, Heroku, DigitalOcean...) :
-Le projet dispose d'un `requirements-frontend.txt` allégé pour le conteneur Docker afin d'éviter l'installation inutile des dépendances GPU lourdes sur le serveur web.
+**Terminal 3 : L'Observatoire (Dashboard MLflow)**
+```bash
+mlflow ui --host 0.0.0.0 --port 5000 --allowed-hosts "*"
+```
+
+**Terminal 4 : Le Pont MLflow (Pour voir le Dashboard)**
+```bash
+npx localtunnel --port 5000 --subdomain mlflow-clinique-chris
+```
+
+✅ **C'est prêt !** 
+- L'URL de l'API est fixée sur : `https://protocole-clinique-api.loca.lt` (à insérer dans Streamlit).
+- Vos logs d'extractions en direct sont sur : `https://mlflow-clinique-chris.loca.lt` (cliquez sur "Click to Continue" pour y accéder).
+
+## 📂 Déploiement de l'Interface Web (Render / Docker)
+
+L'interface client (Streamlit) est dockerisée pour être déployée sur Render, Heroku, etc.
+Le projet utilise un fichier `requirements-frontend.txt` allégé pour le conteneur Docker afin d'éviter l'installation des librairies GPU lourdes sur le frontend.
+
 ```bash
 docker-compose up --build
 ```
@@ -54,20 +62,6 @@ L'application sera accessible sur le port `8501`.
 > 🛠️ **Dépannage Render (Déploiement Cloud)** :
 > - **Redémarrages intempestifs (`Stopping...`)** : Fixez le port en ajoutant la variable d'environnement `PORT=8501` sur Render.
 > - **Erreur `[Errno 24] inotify instance limit reached`** : Désactivez la surveillance en ajoutant la variable `STREAMLIT_SERVER_FILE_WATCHER_TYPE=none`.
-
-### Déploiement Serveur (Lightning AI)
-1. Installez les dépendances (`requirements.txt`).
-2. Démarrez l'API (dans un premier terminal) :
-   ```bash
-   uvicorn api.main:app --host 0.0.0.0 --port 8000
-   ```
-3. Exposez le port via localtunnel (dans un second terminal) :
-   ```bash
-   npx localtunnel --port 8000 --subdomain protocole-clinique-api
-   ```
-   *(💡 Note : `lt` est l'abréviation de `localtunnel`. `npx localtunnel` télécharge et exécute le tunnel à la volée s'il n'est pas installé globalement).*
-
-4. Renseignez l'URL générée (`https://protocole-clinique-api.loca.lt`) dans la barre latérale de l'interface Streamlit.
 
 ### Infrastructure as Code (Terraform)
 Le dossier `terraform/` contient les scripts pour générer la structure de la base de données Supabase automatiquement (`main.tf`, `schema.sql`).
