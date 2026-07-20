@@ -77,7 +77,7 @@ st.sidebar.header("Configuration API")
 st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (GPU)")
 st.sidebar.metric(label="Modèle", value="Full BioBERT")
 st.sidebar.info("Cette interface héberge Streamlit et le scraping, et délègue l'intelligence (Extraction & RAG) au GPU via l'API.")
-api_url = st.sidebar.text_input("URL de l'API Lightning AI:", value=os.getenv("LIGHTNING_AI_API_URL", "https://protocole-clinique-api.loca.lt"), key="api_url_input")
+api_url = st.sidebar.text_input("URL de l'API Lightning AI:", value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"), key="api_url_input")
 
 if st.session_state.api_url_input:
     os.environ["LIGHTNING_AI_API_URL"] = st.session_state.api_url_input
