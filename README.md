@@ -8,7 +8,7 @@ L'application suit une architecture hautement optimisée, gérant intelligemment
 
 - **Collecte Intelligente (JSON vs PDF)** : Lorsqu'une pathologie est cherchée, l'app interroge l'API officielle ClinicalTrials V2. 
   - Si le texte structuré (`eligibilityCriteria`) est disponible, il est envoyé directement à l'IA pour une extraction foudroyante (< 1 seconde).
-  - *Fallback (Plan B)* : Si le texte est manquant, l'application lance un scraper furtif (Playwright) pour télécharger le PDF officiel de l'essai.
+  - *Fallback (Plan B)* : Si le texte est manquant, l'application utilise l'API v2 officielle pour récupérer et télécharger le PDF directement via le CDN de ClinicalTrials.gov (ultra-rapide et robuste).
 - **Stockage Cloud (Supabase Storage)** : Dans le cas du "Plan B" (PDF téléchargé), le fichier est automatiquement sauvegardé dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
 - **Extraction RAG Hybride (BioBERT + Qwen)** : Le PDF ou le texte brut passe par notre pipeline IA. **BioBERT** fragmente le texte et trouve les paragraphes clés pertinents (Embedding vectoriel). Le LLM génératif **Qwen-7B** prend ensuite le relais pour lire ce contexte ultra-ciblé et formater la sortie en un fichier JSON structuré parfait.
 - **Tableau de Bord Médical** : Les données structurées (Maladie, Médicaments, Critères d'inclusion) sont exposées au médecin via une interface Pandas/Streamlit (`st.dataframe`).
