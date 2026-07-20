@@ -2,23 +2,18 @@
 
 Ce projet est une application complète (Data Engineering & Data Science) permettant l'ingestion, le traitement, l'indexation vectorielle, et l'extraction sémantique d'entités depuis des protocoles cliniques (fichiers PDF).
 
-## 🏗️ Architecture du Projet (Pipeline Hybride)
+## 🏗️ Architecture du Projet (Pipeline Hybride V2)
 
-L'application suit une architecture hautement optimisée, séparant les tâches de compréhension et de génération :
+L'application suit une architecture hautement optimisée, gérant intelligemment la collecte et l'extraction des données :
 
-- **Extraction d'Entités (Onglet 1 - Full BioBERT)** : La standardisation des données (NER) est désormais **100% basée sur BioBERT** (`biobert-chia-ner`). Contrairement à une extraction classique par LLM, ce modèle de classification de tokens extrait les entités (Condition, Drug, Measurement) quasi instantanément et sans hallucination. Le modèle Qwen a été *totalement retiré* de cette étape pour des raisons de performance.
-- **Assistant Conversationnel RAG (Onglet 2 - BioBERT + Qwen)** : Le Chatbot RAG utilise une architecture hybride. **BioBERT** agit comme encodeur pour créer les vecteurs (embeddings) et trouver les informations dans la base. Le LLM léger **Qwen-1.5B** prend ensuite le relais *uniquement* pour générer la réponse en langage naturel à partir de ces extraits.
+- **Collecte Intelligente (JSON vs PDF)** : Lorsqu'une pathologie est cherchée, l'app interroge l'API officielle ClinicalTrials V2. 
+  - Si le texte structuré (`eligibilityCriteria`) est disponible, il est envoyé directement à l'IA pour une extraction foudroyante (< 1 seconde).
+  - *Fallback (Plan B)* : Si le texte est manquant, l'application lance un scraper furtif (Playwright) pour télécharger le PDF officiel de l'essai.
+- **Stockage Cloud (Supabase Storage)** : Dans le cas du "Plan B" (PDF téléchargé), le fichier est automatiquement sauvegardé dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
+- **Extraction RAG Hybride (BioBERT + Qwen)** : Le PDF ou le texte brut passe par notre pipeline IA. **BioBERT** fragmente le texte et trouve les paragraphes clés pertinents (Embedding vectoriel). Le LLM léger **Qwen-1.5B** prend ensuite le relais pour lire ce contexte ultra-ciblé et formater la sortie en un fichier JSON structuré parfait.
+- **Tableau de Bord Médical** : Les données structurées (Maladie, Médicaments, Critères d'inclusion) sont exposées au médecin via une interface Pandas/Streamlit (`st.dataframe`).
 - **Base Vectorielle** : Supabase avec l'extension `pgvector` et un index HNSW.
-- **Serveur d'Inférence** : API FastAPI hébergée sur **Lightning AI** (GPU).
 - **Monitoring** : `MLflow` pour le suivi des performances (latence, prompts, JSON de sortie).
-
-## 🚀 Utilisation de vLLM (Accélération GPU)
-
-Pour l'onglet RAG, la génération de texte par le LLM (Qwen-1.5B) est propulsée par **vLLM**, un moteur d'inférence ultra-rapide.
-
-- **Smart Fallback** : L'API détecte automatiquement votre matériel au lancement. Si un GPU est présent, vLLM est activé. Sinon, l'API bascule sur la librairie `transformers` native (plus lente mais fonctionnelle sur CPU).
-- **Gestion de la VRAM** : vLLM est paramétré pour utiliser `70%` de la mémoire vidéo (`gpu_memory_utilization=0.7`). Cela garantit qu'il reste toujours `30%` de VRAM disponible pour faire tourner BioBERT en parallèle sans crash (OOM).
-- **Bénéfice** : vLLM utilise la technique du *PagedAttention* pour gérer le cache KV de manière optimale, rendant les réponses du Chatbot fluides et instantanées.
 
 ## 🚀 Démarrage Rapide
 
