@@ -145,12 +145,22 @@ with tab1:
             if not tasks:
                 st.warning("Aucun essai trouvé pour cette requête.")
             else:
+                if "demo_cache" not in st.session_state:
+                    st.session_state.demo_cache = {}
+                    
                 with st.spinner(f"Étape 2/2 : Envoi de {len(tasks)} protocoles au serveur GPU (Full BioBERT) & MLflow..."):
                     start_time = time.time()
                     results = []
                     
                     for task in tasks:
                         nct_id = task["nct_id"]
+                        
+                        # --- CACHE: Si on a déjà extrait ce JSON aujourd'hui, on le ressort instantanément ---
+                        if nct_id in st.session_state.demo_cache:
+                            results.append(st.session_state.demo_cache[nct_id])
+                            st.session_state.extracted_docs.append(nct_id)
+                            continue
+                            
                         try:
                             if task["type"] == "text":
                                 # Mode rapide : Texte direct
@@ -198,6 +208,7 @@ with tab1:
                                         data["extraction"] = {"parse_error": "Aucun { trouvé", "raw": raw_text}
                                 
                                 results.append(data)
+                                st.session_state.demo_cache[nct_id] = data
                                 st.session_state.extracted_docs.append(data["document"])
                             else:
                                 st.error(f"Erreur API ({response.status_code}) pour {nct_id}: {response.text}")
