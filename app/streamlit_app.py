@@ -61,18 +61,19 @@ with st.sidebar.expander("📌 Objectifs & Contexte", expanded=False):
 
 with st.sidebar.expander("⚙️ Architecture (Backbone)", expanded=False):
     st.markdown("""
-    Extraction d’entités standardisées (NER) de protocoles cliniques à partir d’un corpus (taxonomies médicales = Chia) appris par un modèle **BioBERT** :
-    - **Entrées :** protocoles (JSON), modèle NLP BioBERT
-    - **Sorties :** JSON avec les entités extraites et leurs relations
-    - **Objectif métier :** Structurer les données cliniques brutes pour permettre à un assistant conversationnel (RAG) d'interroger et de cibler précisément les informations pertinentes (maladie, traitement, critères d'inclusion).
+    **Pipeline ETL Hybride et RAG accéléré sur GPU :**
+    - **Entrées :** API officielle ClinicalTrials (JSON massifs) ou PDFs scannés (Fallback).
+    - **Moteur d'Intelligence :** Modèle **Qwen** (LLM Génératif) propulsé par **vLLM** sur GPU, couplé à **BioBERT** pour les embeddings vectoriels.
+    - **Sorties :** Jeux de données structurés (JSON/CSV) prêts pour l'analyse.
+    - **Objectif métier :** Résoudre l'hétérogénéité des protocoles cliniques grâce à une IA capable de lire du texte libre ou des PDFs complexes, et alimenter un Assistant Chatbot RAG omniscient.
     """)
 
-with st.sidebar.expander("🚀 Extensions (Nice to have)", expanded=False):
+with st.sidebar.expander("🚀 MLOps & Ops", expanded=False):
     st.markdown("""
-    - Faire de la recherche d’information sur un ou plusieurs protocoles avec du **RAG** (Retrieval-Augmented Generation).
-    - Comparer les performances entre LLM concurrents.
-    - Analyser les protocoles associés à différents domaines/pathologies.
-    - Fine-tuning si suffisamment de données sont disponibles.
+    - **Zone de Rejet :** Isolation des documents corrompus sans bloquer le pipeline.
+    - **Observabilité :** Monitoring des latences et requêtes avec **MLflow**.
+    - **Déploiement :** Infrastructure as Code (Terraform), Containerisation (Docker) et automatisation (CRON).
+    - **Stockage :** Base de données vectorielle et Object Store sur **Supabase**.
     """)
 
 st.sidebar.markdown("---")
