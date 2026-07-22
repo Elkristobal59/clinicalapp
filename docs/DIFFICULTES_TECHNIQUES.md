@@ -26,3 +26,10 @@ Cette section documente les principales difficultés techniques rencontrées lor
 **Le problème :** Lors de la synchronisation du code via Git, l'interface Git Credential Manager sous Windows a généré des invites de connexion invisibles en arrière-plan.
 **La conséquence :** Les scripts de push sont restés figés indéfiniment, bloquant le transfert de code vers le cloud Lightning.
 **La résolution :** Utilisation de scripts d'injection de code dynamique (patching via `python -c`) directement sur les serveurs distants pour by-passer Git de manière asynchrone sans ralentir l'avancée du projet.
+
+## 5. Deadlock matériel du système de fichiers et Cache Fantôme HuggingFace
+**Le problème :** En interrompant le téléchargement du modèle sur Lightning AI, un processus "fantôme" est resté bloqué en arrière-plan. HuggingFace gère ses téléchargements avec des fichiers verrous (`.locks`).
+**La conséquence :** 
+1. Les lancements suivants du script d'entraînement se bloquaient silencieusement à l'infini en attendant le processus fantôme.
+2. Toute tentative de suppression (`rm -rf`) bloquait tout le terminal à cause d'un "deadlock" matériel du système de fichiers réseau (NFS/EFS) utilisé par Lightning.
+**La résolution :** Diagnostic de la défaillance matérielle, redémarrage électrique (Stop/Start) du Studio virtuel pour purger la RAM et débloquer les I/O disque, suivi d'une commande système radicale de purge manuelle des caches HuggingFace (`rm -rf ~/.cache/huggingface/hub/...`) avant le relancement de l'entraînement.

@@ -12,7 +12,7 @@ from trl import SFTTrainer, SFTConfig
 # Configuration
 MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct" # Modèle de 0.5B pour garantir le passage sur 6 Go VRAM
 DATASET_PATH = "data/train_dataset.jsonl"
-OUTPUT_DIR = r"d:\AIFS01\PROJET FINAL\stack_equipe\models\qwen_chia_finetuned"
+OUTPUT_DIR = "models/qwen_chia_finetuned"
 
 def main():
     print(f"Loading dataset from {DATASET_PATH}...")
