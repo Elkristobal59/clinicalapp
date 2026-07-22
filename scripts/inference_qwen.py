@@ -25,7 +25,7 @@ def main():
         MODEL_ID,
         quantization_config=bnb_config,
         device_map="auto",
-        torch_dtype=torch.bfloat16
+        dtype=torch.bfloat16
     )
     
     # Charger les poids finetunés (LoRA)

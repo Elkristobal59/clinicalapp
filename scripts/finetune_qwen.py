@@ -32,7 +32,7 @@ def main():
         MODEL_ID,
         quantization_config=bnb_config,
         device_map="auto",
-        torch_dtype=torch.float16
+        dtype=torch.float16
     )
     model.config.use_cache = False
     
