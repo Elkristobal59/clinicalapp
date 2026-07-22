@@ -59,10 +59,9 @@ def main():
     dataset = dataset.map(formatting_prompts_func)
     
     # Training Arguments optimisés pour 6 Go VRAM (Laptop)
-    training_args = SFTConfig(
+    from transformers import TrainingArguments
+    training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
-        dataset_text_field="text",
-        max_seq_length=512,
         per_device_train_batch_size=1,     # Réduit à 1 pour économiser la mémoire
         gradient_accumulation_steps=8,     # Augmenté pour simuler un batch size de 8
         optim="paged_adamw_8bit",          # Optimiseur en 8-bits pour diviser sa taille mémoire par 4 !
@@ -79,7 +78,8 @@ def main():
     # Trainer
     trainer = SFTTrainer(
         model=model, train_dataset=dataset, peft_config=peft_config,
-        processing_class=tokenizer, args=training_args
+        tokenizer=tokenizer, args=training_args,
+        dataset_text_field="text", max_seq_length=512
     )
     
     print("Starting training...")
