@@ -95,7 +95,18 @@ tab1, tab2 = st.tabs(["📄 Extraction & Ingestion", "💬 Chatbot RAG"])
 
 with tab1:
     st.header("1. Ingestion & Extraction")
-    query = st.text_input("Quelle maladie investiguer ? (ex: Breast Cancer, Alzheimer's, Melanoma, Lupus, Cardiology...)")
+    
+    # Demande d'Arnaud : Champs spécifiques plutôt que recherche globale
+    search_type = st.selectbox("Critère de recherche :", [
+        "Maladie (Condition)", 
+        "InterventionName", 
+        "Phase", 
+        "StudyType", 
+        "EligibilityCriteria", 
+        "PrimaryOutcomeMeasure"
+    ])
+    
+    query = st.text_input(f"Valeur recherchée (ex: Breast Cancer, Aspirin, PHASE2...)")
     max_results = st.slider("Nombre d'essais cliniques à extraire :", min_value=1, max_value=10, value=2)
     force_pdf = st.checkbox("📥 Ignorer le texte natif et forcer le scraping PDF (Plan B)")
     
@@ -109,10 +120,23 @@ with tab1:
                 os.makedirs(output_dir, exist_ok=True)
                 
                 tasks = []
+                # Mapping du choix de l'utilisateur vers les paramètres de l'API v2 de ClinicalTrials
+                if search_type == "Maladie (Condition)":
+                    api_param = f"query.cond={query}"
+                elif search_type == "InterventionName":
+                    api_param = f"query.intr={query}"
+                elif search_type == "Phase":
+                    api_param = f"filter.phase={query}"
+                elif search_type == "StudyType":
+                    api_param = f"filter.studyType={query}"
+                else:
+                    # Pour EligibilityCriteria et PrimaryOutcomeMeasure, query.term fouille tout le texte
+                    api_param = f"query.term={query}"
+                    
                 # Appeler l'API officielle
                 if force_pdf:
                     # Si on force le PDF, il faut chercher des essais qui ont VRAIMENT un PDF attaché
-                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?query.cond={query}&pageSize=50&fields=NCTId,ProtocolSection,DocumentSection"
+                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?{api_param}&pageSize=50&fields=NCTId,ProtocolSection,DocumentSection"
                     try:
                         resp = requests.get(api_url_ct, timeout=10)
                         studies = resp.json().get("studies", [])
@@ -128,7 +152,7 @@ with tab1:
                         st.error(f"Erreur API ClinicalTrials: {e}")
                 else:
                     # Recherche standard (priorité au texte)
-                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?query.cond={query}&pageSize={max_results}&fields=NCTId,ProtocolSection"
+                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?{api_param}&pageSize={max_results}&fields=NCTId,ProtocolSection"
                     try:
                         resp = requests.get(api_url_ct, timeout=10)
                         studies = resp.json().get("studies", [])
