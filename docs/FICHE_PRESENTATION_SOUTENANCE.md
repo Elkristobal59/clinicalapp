@@ -97,6 +97,11 @@ L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites
     *   **`entropy` (L'Incertitude) :** Mesure de l'hésitation du modèle. Elle a fortement baissé, prouvant que le modèle a pris confiance.
     *   **`grad_norm` (Norme du gradient) :** La force des corrections appliquées. Maintenue stable (autour de 0.5), elle prouve un apprentissage fluide sans bug mathématique.
     *   **`learning_rate` :** Maintenu constant à 0.0002. L'idéal pour un Quick LoRA (Fine-Tuning rapide) sans faire d'Oubli Catastrophique.
+5.  **Le Choix Stratégique du Modèle (Pourquoi Qwen2.5-0.5B-Instruct ?) :**
+    *   **L'Architecture 2.5 :** Sortie très récemment (septembre 2024), elle possède d'excellentes capacités natives pour structurer ses sorties en JSON strict (crucial pour notre pipeline).
+    *   **Le Format "Small Language Model" (0.5B) :** Ne pesant qu'1 Go, il peut tourner localement sur un ordinateur portable standard (Edge AI). C'est un point décisif pour les données de santé : aucune donnée patient ne fuite sur des serveurs Cloud (respect total du secret médical et du RGPD).
+    *   **Le Tag "Instruct" :** Il sait déjà suivre une conversation et des consignes. Lors du fine-tuning, nous n'avons pas eu besoin de lui apprendre à parler, mais uniquement à extraire la sémantique médicale (gain de temps et de données).
+    *   **Multilingue :** Très performant en français et en anglais, idéal pour des textes médicaux qui mélangent souvent les deux langues.
 
 ---
 

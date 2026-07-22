@@ -16,6 +16,15 @@ L'application suit une architecture hautement optimisée, gérant intelligemment
 - **Base Vectorielle** : Supabase avec l'extension `pgvector` et un index HNSW.
 - **Monitoring** : `MLflow` pour le suivi des performances (latence, prompts, JSON de sortie).
 
+## 📂 Rôle des Scripts de Machine Learning & Données (`scripts/`)
+
+Pour garantir une rigueur scientifique totale (pas de *Data Leakage*), l'équipe a développé une suite de scripts stricts pour gérer la donnée CHIA :
+
+1.  **`extract_full_chia.py` (La Collecte)** : Se connecte aux sources (Drive/HuggingFace), rassemble les PDF et les annotations BRAT, et génère la base de données brute consolidée (`chia_gold_standard_v2.json`).
+2.  **`split_dataset.py` (La Répartition)** : Sépare intelligemment la base brute. Il met de côté 5 études secrètes (Le *Holdout Set* dans un coffre-fort pour le jour J), puis coupe le reste en deux fichiers : `train_dataset.jsonl` (le cahier d'exercices) et `test_dataset.jsonl` (l'examen blanc).
+3.  **`finetune_qwen.py` (L'Entraînement)** : Le script de MLOps ! Il prend le modèle Qwen-0.5B brut, le fait réviser sur le `train_dataset.jsonl` via la méthode optimisée **QLoRA** (4-bit), et sauvegarde son "cerveau médical" dans le dossier `models/`.
+4.  **`inference_qwen.py` (L'Évaluation)** : Le script d'examen. Il charge le modèle fine-tuné et le fait travailler à l'aveugle sur le `test_dataset.jsonl`. Il calcule ensuite mathématiquement le Score F1, la Précision et le Rappel pour le Benchmark officiel de la soutenance.
+
 ## 🚀 Démarrage Rapide
 
 **1. Cloner le projet**
