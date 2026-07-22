@@ -38,8 +38,10 @@ def main():
             print(f"⚠️  Étude {nct_id} ignorée (Réservée pour le Holdout Set d'Arnaud)")
             continue
 
-        # Extraction du texte source
-        text_list = ex.get("text")
+        # BIGBIO FIX : Le texte est dans "passages" et non dans "text"
+        passages = ex.get("passages", [])
+        text_list = passages[0].get("text") if passages else ex.get("text")
+        
         if not text_list:
             continue
             
@@ -48,7 +50,9 @@ def main():
 
         entities = []
         for e in ex.get("entities", []):
-            label = e.get("type")
+            label_raw = e.get("type")
+            label = label_raw[0] if isinstance(label_raw, list) and len(label_raw) > 0 else label_raw
+            
             if label not in TARGET_ENTITIES:
                 continue
                 
