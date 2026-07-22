@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import argparse
 import sys
+import os
 
 # Structure demandée par Jérémie :
 # Obligatoires : nctId, InterventionName, Phase, StudyType, EligibilityCriteria, PrimaryOutcomeMeasure
@@ -16,6 +17,15 @@ def safe_get(data, *keys):
         else:
             return None
     return curr
+
+def has_pdf(nct_id):
+    """Vérifie si un PDF est présent pour ce NCT ID dans le dossier data/chia_pdfs"""
+    pdf_dir = os.path.join("data", "chia_pdfs")
+    if os.path.exists(pdf_dir):
+        for filename in os.listdir(pdf_dir):
+            if filename.startswith(nct_id) and filename.endswith(".pdf"):
+                return "Oui"
+    return "Non"
 
 def extract_study_data(study_json):
     """Extrait exactement les champs demandés par Jérémie depuis la structure complexe de l'API v2"""
@@ -62,6 +72,7 @@ def extract_study_data(study_json):
     # Création de la ligne pour le tableau récapitulatif
     return {
         "NCT_ID": nct_id,
+        "PDF Présent": has_pdf(nct_id),
         "Official Title": title or "N/A",
         "Study Type": study_type or "N/A",
         "Phase": phase_str,
