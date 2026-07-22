@@ -10,9 +10,9 @@ from peft import LoraConfig
 from trl import SFTTrainer, SFTConfig
 
 # Configuration
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct" # Modèle de 0.5B pour garantir le passage sur 6 Go VRAM
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct" # Modèle de 7B (Nécessite ~14Go VRAM pour l'entraînement)
 DATASET_PATH = "data/train_dataset.jsonl"
-OUTPUT_DIR = "models/qwen_chia_finetuned"
+OUTPUT_DIR = "models/qwen_7b_chia_finetuned"
 
 def main():
     print(f"Loading dataset from {DATASET_PATH}...")
@@ -62,8 +62,8 @@ def main():
     from transformers import TrainingArguments
     training_args = TrainingArguments(
         output_dir=OUTPUT_DIR,
-        per_device_train_batch_size=1,     # Réduit à 1 pour économiser la mémoire
-        gradient_accumulation_steps=8,     # Augmenté pour simuler un batch size de 8
+        per_device_train_batch_size=2,     # Augmenté à 2 pour tirer parti de la Nvidia L4 (24Go)
+        gradient_accumulation_steps=4,     # Ajusté pour garder un batch size effectif de 8
         optim="paged_adamw_8bit",          # Optimiseur en 8-bits pour diviser sa taille mémoire par 4 !
         save_steps=50,
         logging_steps=10,

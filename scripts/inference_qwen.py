@@ -5,10 +5,10 @@ from peft import PeftModel
 from tqdm import tqdm
 import re
 
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
-ADAPTER_DIR = "models/qwen_chia_finetuned"
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+ADAPTER_DIR = "models/qwen_7b_chia_finetuned"
 TEST_DATA = "data/test_dataset.jsonl"
-OUTPUT_PREDS = "data/chia_predictions_qwen.json"
+OUTPUT_PREDS = "data/chia_predictions_qwen_7b.json"
 
 def main():
     print("Loading tokenizer and base model...")
