@@ -6,9 +6,14 @@
 
 ## 1. 🌟 Introduction & Contexte Métier
 **"Bonjour à tous. Notre projet s'intitule *Clinical Protocols Standardization*."**
-*   **Le Problème :** Aujourd'hui, les protocoles d'essais cliniques sont souvent des blocs de texte libre ou des documents PDF complexes. C'est illisible à grande échelle pour des analyses de données.
-*   **La Solution :** Nous avons développé une pipeline complète d'Intelligence Artificielle (IA) capable de lire ces essais cliniques, d'extraire les concepts médicaux clés (maladies, critères d'inclusion, traitements) et de les convertir en jeux de données structurés (JSON / CSV).
+*   **Le Problème :** Nous nous appuyons sur une source officielle et mondiale (la base *ClinicalTrials.gov*). Le problème ? Bien qu'elle regroupe tous les essais, la donnée est brute et extrêmement difficile à exploiter à grande échelle : les protocoles sont soit noyés dans des textes libres (JSON), soit enfermés dans des PDF scannés complexes.
+*   **La Solution :** Nous avons développé un pipeline ETL complet basé sur l'Intelligence Artificielle (IA) capable d'ingérer cette base officielle, d'extraire les concepts médicaux clés de ces formats chaotiques, et de les convertir en jeux de données proprement structurés (JSON / CSV).
+*   **Notre MVP (Minimum Viable Product) :** Une application Web fonctionnelle de bout en bout où un chercheur peut taper le nom d'une maladie, déclencher un pipeline d'extraction IA hybride (qui fouille les bases JSON officielles et scappe les PDFs en secours), et récupérer instantanément la donnée structurée sous forme de tableau Excel/CSV.
 *   **L'Équipe :** Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau.
+
+> **🛡️ Défense du Choix Architectural : Pourquoi un LLM brut plutôt qu'un modèle ML entraîné ?**
+> *(À utiliser si le jury demande : "Pourquoi n'y a-t-il pas de Train/Test split ou d'entraînement ?")*
+> **Réponse :** "Notre problème métier consiste à extraire de l'information de textes libres ultra-complexes (des immenses blocs textes en JSON ou des PDFs médicaux scannés). Le Machine Learning classique est inopérant sur cette tâche. Quant à entraîner ou fine-tuner un LLM de zéro, cela coûte une fortune en GPU et en temps. Nous avons donc fait un choix d'ingénieur moderne MLOps : nous exploitons un LLM open-source brut (Qwen), et toute notre valeur ajoutée réside dans l'architecture d'ingestion (notre ETL hybride), le Retrieval-Augmented Generation (RAG) et le Prompt Engineering. C'est la façon la plus performante et économique de résoudre ce problème métier."
 
 ---
 
@@ -25,24 +30,30 @@
     *   **Hébergement :** `Lightning.ai` (Serveur Cloud équipé d'un GPU surpuissant). On expose ce serveur à notre Frontend grâce à un pont sécurisé `LocalTunnel`.
     *   **Rôle :** Il réceptionne les données brutes, fait tourner les modèles d'IA lourds sur la carte graphique, et renvoie de la donnée structurée.
 
-3.  **Le Stockage & L'Infrastructure (La Mémoire)**
-    *   **Techno :** `Supabase` (Alternative Open-Source à Firebase, basée sur PostgreSQL et de l'Object Storage AWS).
-    *   **Rôle :** Archiver les documents lourds (PDFs) et stocker les métadonnées. L'infrastructure de cette base a été conçue comme du code (Infrastructure as Code) grâce à `Terraform`.
-    *   **Tracking :** Nous utilisons aussi `MLflow` pour tracer les performances et les temps de réponse de nos modèles.
+3.  **Le Stockage, L'Infrastructure & L'Observabilité**
+    *   **Techno :** `Supabase` (PostgreSQL + Object Storage AWS) & `MLflow`.
+    *   **Rôle :** Archiver les documents lourds (PDFs) et stocker les métadonnées de l'ETL (Infrastructure as Code via `Terraform`).
+    *   **Observabilité & Alertes :** Nous avons rendu l'IA totalement observable via `MLflow` : nous traçons la **métrique de latence** (qui doit rester sous 4s) et surveillons la **qualité** du modèle au fil du temps. Un système d'alerte et de logs (try/except) prévient en cas de chute du serveur GPU.
 
 ---
 
-## 3. ⚙️ Le Déroulé Exact du Flux de Données (Le "Pipeline")
-**"Voici exactement ce qui se passe sous le capot quand on clique sur *Rechercher* :"**
+## 3. ⚙️ Le Déroulé Exact du Flux de Données : Un Pipeline ETL Piloté par l'IA
+**"Si le jury nous demande ce qu'est notre projet sous le capot, la réponse est simple : c'est un pur pipeline ETL (Extract, Transform, Load) intelligent :"**
 
-### Étape 1 : L'Ingestion Hybride (Côté Streamlit)
-Quand on tape "Lung Cancer", l'interface fait une requête à l'API du gouvernement américain (ClinicalTrials.gov) pour identifier les essais pertinents. C'est ici que notre architecture devient "intelligente" grâce à une **approche hybride en 2 plans** :
+### 🔍 La Matière Première : Comprendre la donnée d'entrée (API ClinicalTrials)
+Notre projet se base sur l'API publique V2 du gouvernement américain (ClinicalTrials.gov). Cette API renvoie des fichiers **JSON massifs et très imbriqués** contenant toutes les métadonnées d'un essai (dates, lieux, sponsors). 
+**Le problème métier (pourquoi notre app existe ?) :** Bien que l'API soit riche, la donnée médicale cruciale (les fameux "Critères d'Éligibilité") est extrêmement hétérogène :
+1. Soit elle est présente directement en texte libre et non-structuré dans le JSON.
+2. Soit elle est absente du JSON, mais enfermée dans un énorme document PDF scanné et annexé à l'essai.
+3. Soit il n'y a ni texte ni PDF (donnée manquante ou non publiée).
+C'est cette incohérence structurelle massive qui empêchait les chercheurs d'analyser les essais, et qui rend notre pipeline ETL IA indispensable !
+
+### Étape 1 : EXTRACT (L'Ingestion Hybride)
+Quand on tape "Lung Cancer", l'interface fait une requête à cette API pour identifier les essais pertinents. C'est ici que notre architecture devient "intelligente" grâce à une **approche hybride en 2 plans**, conçue pour affronter l'hétérogénéité des données :
 *   **Plan A (Fast-Track) :** Le script vérifie si le JSON officiel contient déjà un bloc texte détaillé pour les *Critères d'Éligibilité* (> 100 caractères). Si oui, on extrait directement ce texte sans rien télécharger d'autre. C'est ultra-rapide.
-*   **Plan B (Fallback PDF ou Choix Utilisateur) :** Si le texte natif est manquant (ou si l'utilisateur coche l'option de forçage manuel), l'application va **scanner intelligemment** les résultats de l'API v2 pour filtrer et isoler uniquement les essais possédant réellement un fichier PDF attaché. Elle télécharge ensuite ces PDF originaux directement via le CDN public de ClinicalTrials. Le fichier est ensuite envoyé **directement dans notre bucket Cloud Supabase** (dossier `clinical_pdfs`) pour le sauvegarder, puis envoyé au serveur GPU.
-    > **💡 Point d'Ingénierie Fort (Recherche Intelligente & Scraping CDN) :** Au début du projet, nous utilisions un navigateur fantôme (`Playwright`) pour simuler un clic humain sur le site (très lent et instable). Nous avons remplacé cela par un algorithme qui filtre à la volée les flux de l'API v2 et télécharge sur le CDN. 
-    > *NB pour le jury (C'est quoi un CDN ?) : Un Content Delivery Network est un réseau de serveurs très rapides fait uniquement pour héberger de gros fichiers (les PDF). Au lieu de charger une page web lourde, on court-circuite l'interface pour pomper le fichier à la source de façon instantanée.*
-    > Résultat : une extraction garantie, aucune dépendance lourde de navigateur web, et une robustesse à 100% pour un déploiement Cloud.
-### Étape 2 : L'Inférence IA sur GPU (Côté Lightning.ai)
+*   **Plan B (Fallback PDF ou Choix Utilisateur) :** Si le texte natif est manquant, l'application va filtrer les résultats pour isoler les essais avec PDF, et télécharger ce PDF via le CDN de ClinicalTrials vers notre bucket Cloud Supabase.
+    > **💡 Point d'Ingénierie Fort (Scraping CDN & Zone de Rejet) :** Plutôt qu'un navigateur fantôme lent, nous tapons directement dans le CDN ultra-rapide. Mais que se passe-t-il si un PDF est corrompu ou introuvable ? Pour garantir la robustesse de l'ETL, nous avons créé un filet de sécurité : les documents erronés sont isolés dans une **"Zone de Rejet"** avec un log d'erreur. Le pipeline n'est jamais interrompu, il continue instantanément sur le document suivant !
+### Étape 2 : TRANSFORM (L'Inférence IA sur GPU)
 Le backend (FastAPI) reçoit soit du texte pur, soit le fichier PDF. 
 *(Si c'est un PDF, la librairie `PyMuPDF/fitz` le transforme en texte).*
 
@@ -52,19 +63,31 @@ C'est là que la magie de l'IA opère en deux temps (Le RAG) :
 
 > **💡 Note de Performance (vLLM) :** Grâce à notre moteur `vLLM` couplé au GPU, nous atteignons des vitesses de génération d'environ **75 tokens par seconde**. Le temps de lecture et d'extraction complète d'un essai clinique prend en moyenne **2 à 4 secondes** (contre plusieurs dizaines de secondes sur une architecture CPU classique).
 
-### Étape 3 : Restitution au Médecin / Chercheur
+### Étape 3 : LOAD & SERVE (Stockage Cloud & Restitution)
 Le JSON structuré redescend du GPU vers notre Frontend `Streamlit`. L'interface affiche :
 *   Les critères découpés proprement (Âge, Médicaments prescrits, Historique médical).
 *   Un lien cliquable vers la source officielle Web.
 *   Un lien de téléchargement direct de l'archive PDF depuis notre Cloud Supabase (uniquement si le Plan B a été utilisé).
 
+> **💡 Point d'Ingénierie Fort (Vitesse vs Persistance) :** Pour garantir une expérience utilisateur (et une démo) parfaitement fluide, nous avons implémenté un système de **Cache Frontend (en mémoire vive)** sur Streamlit : si on recherche un essai déjà extrait, l'interface le réaffiche instantanément (0.01s) sans resolliciter le GPU. 
+> À l'inverse, **notre base de données vectorielle (Supabase)**, qui alimente l'onglet Chatbot RAG, est **persistante** : elle s'enrichit en temps réel de chaque nouveau document ingéré. Le Chatbot RAG devient donc de plus en plus omniscient à chaque recherche !
+
 ---
 
-## 4. 📈 Conclusion et Bilan des Outils (DevOps)
-**"Pour conclure, nous avons construit bien plus qu'un script Python :"**
-*   **Des performances de pointe :** 75 tokens/s en génération, une pipeline hybride qui divise les temps de réponse par 10 en évitant le téléchargement de PDF inutiles.
-*   **Conteneurisation :** Nous avons des **Dockerfiles** prêts pour une mise en production en conteneurs de n'importe quel micro-service.
-*   **Infrastructure As Code :** Nous utilisons du **Terraform** pour scripter notre Cloud (Supabase).
-*   **Collaboration :** Le tout est versionné sur **Git/GitHub** avec des pipelines CI/CD.
+## 4. 📈 Conclusion et Déploiement (Ops)
+**"Pour conclure, nous avons transformé un modèle LLM brut en un véritable produit industrialisé :"**
+*   **L'Automatisation (CRON) :** Notre ETL n'est pas seulement déclenchable "à la main" via l'interface. Son architecture est pensée pour pouvoir tourner via une planification automatique (CRON) en arrière-plan, afin d'aspirer de façon autonome les nouveaux essais publiés.
+*   **Conteneurisation (Docker) :** L'intégralité du projet a été packagée sous **Docker** pour garantir que notre code tourne de manière identique sur n'importe quel serveur en production, éliminant les problèmes de dépendances.
+*   **Observabilité & Qualité de bout en bout :** MLflow pour les latences, alertes système, et isolation des erreurs.
+*   **Infrastructure & CI/CD :** Base de données déployée via **Terraform** (Infrastructure as Code) et versionning sur GitHub.
 
-L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites (PDF vs JSON natif), et optimisée financièrement (délégation du calcul lourd sur un GPU à distance uniquement quand c'est nécessaire).
+L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites, et totalement prête pour la production !
+
+---
+
+## 5. 🚀 Perspectives & Évolutions
+**"Si nous avions plus de temps pour amener ce projet au niveau supérieur, voici ce que nous ferions (nous avons d'ailleurs déjà commencé !) :"**
+1.  **Fine-Tuning d'un petit LLM (MLOps Avancé) :** Maintenant que notre pipeline nous permet de créer automatiquement des datasets de haute qualité, nous avons préparé le terrain pour fine-tuner un petit modèle très rapide (Qwen 0.5B). Dans une démarche proactive, nous avons déjà écrit les scripts d'entraînement `QLoRA` optimisés pour tourner sur un simple ordinateur portable (6 Go VRAM) en 4-bits. Cela permettra de spécialiser l'IA sur la taxonomie médicale CHIA et de diviser nos coûts de GPU par deux !
+2.  **Traitement Multi-Modal :** Ajouter la capacité de lire et comprendre les tableaux, graphiques et images souvent présents dans les PDF complexes.
+3.  **Scalabilité Cloud (Kubernetes) :** Passer d'un seul conteneur GPU (Lightning.ai) à un cluster Kubernetes capable d'auto-scaler le nombre de GPUs en fonction du volume d'essais entrants.
+4.  **Workflows d'Agents IA :** Connecter notre LLM à des bases externes (PubMed, WHO) pour qu'il vérifie ou croise ses extractions de lui-même (Agentic RAG).

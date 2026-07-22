@@ -20,6 +20,11 @@ except ImportError:
     run_scraper = None
     download_pdf_for_nctid = None
 
+try:
+    from scripts.generate_fields_summary import generate_summary_df, check_module_fields, MODULES
+except ImportError:
+    generate_summary_df = None
+
 st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
 
 # Image d'en-tête (Bannière médicale tech)
@@ -276,6 +281,50 @@ with tab1:
             file_name=f"extractions_{query.replace(' ', '_')}.csv",
             mime="text/csv"
         )
+        
+        # --- NEW: Tableau de Résumé des champs (API JSON) ---
+        if generate_summary_df is not None:
+            st.markdown("---")
+            st.subheader("📑 Disponibilité des Champs Source (ClinicalTrials API)")
+            st.markdown("Aperçu de la complétude des JSON officiels pour les essais ciblés, afin d'évaluer la qualité de la donnée source.")
+            
+            # Fetch JSON from API for these NCTs
+            nct_list = [res['document'] for res in results]
+            
+            with st.spinner("Analyse de la qualité des données sources..."):
+                studies_summary = []
+                for nct_id in nct_list:
+                    url = f"https://clinicaltrials.gov/api/v2/studies/{nct_id}"
+                    try:
+                        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+                        if resp.status_code == 200:
+                            studies_summary.append({"id": nct_id, "data": resp.json()})
+                    except Exception:
+                        pass
+                
+                if studies_summary:
+                    df_summary = generate_summary_df(studies_summary)
+                    
+                    # Fonction pour coloriser les cellules (vert/jaune/rouge) dans Streamlit
+                    def color_cells(val):
+                        if val == "Yes":
+                            return 'background-color: #d4edda; color: #155724;' # Vert pastel
+                        elif val == "Partial":
+                            return 'background-color: #fff3cd; color: #856404;' # Jaune pastel
+                        elif val == "No":
+                            return 'background-color: #f8d7da; color: #721c24;' # Rouge pastel
+                        return ''
+
+                    styled_df = df_summary.style.map(color_cells, subset=pd.IndexSlice[:, nct_list])
+                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+                    
+                    csv_summary = df_summary.to_csv(index=False, sep=';').encode('utf-8-sig')
+                    st.download_button(
+                        label="📥 Exporter le tableau de complétude (Excel/CSV)",
+                        data=csv_summary,
+                        file_name=f"api_completude_{query.replace(' ', '_')}.csv",
+                        mime="text/csv"
+                    )
 
 with tab2:
     st.header("2. Assistant Chatbot RAG")
