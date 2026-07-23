@@ -9,7 +9,7 @@
 *   **Le Problème :** Nous nous appuyons sur une source officielle et mondiale (la base *ClinicalTrials.gov*). Le problème ? Bien qu'elle regroupe tous les essais, la donnée est brute et extrêmement difficile à exploiter à grande échelle : les protocoles sont soit noyés dans des textes libres (JSON), soit enfermés dans des PDF scannés complexes.
 *   **La Solution :** Nous avons développé un pipeline ETL complet basé sur l'Intelligence Artificielle (IA) capable d'ingérer cette base officielle, d'extraire les concepts médicaux clés de ces formats chaotiques, et de les convertir en jeux de données proprement structurés (JSON / CSV).
 *   **Notre MVP (Minimum Viable Product) :** Une application Web fonctionnelle de bout en bout où un chercheur peut taper le nom d'une maladie, déclencher un pipeline d'extraction IA hybride (qui fouille les bases JSON officielles et scappe les PDFs en secours), et récupérer instantanément la donnée structurée sous forme de tableau Excel/CSV.
-*   **L'Équipe :** Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau.
+*   **L'Équipe :** Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau, Karim Atebata.
 
 > **🛡️ Défense du Choix Architectural : Le "FinOps" et l'IA Hybride**
 > *(À utiliser si le jury demande : "Pourquoi avoir séparé la recherche et l'IA ?" ou "Pourquoi Qwen ?")*
