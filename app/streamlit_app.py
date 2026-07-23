@@ -1,51 +1,102 @@
-"""
-Script : streamlit_app.py (Le Frontend Démo & RAG)
---------------------------------------------------
-Rôle : Offrir une interface graphique utilisateur (GUI) interactive pour démontrer 
-le pipeline d'extraction IA et le Chatbot (RAG) au jury.
-
-🎓 Explication pour le jury (Pourquoi ce Front ?) :
-En MLOps, avoir un modèle performant ne suffit pas, il faut pouvoir le rendre utilisable 
-par les métiers (ici, des chercheurs médicaux). 
-Ce dashboard Streamlit est le point d'entrée qui connecte les utilisateurs humains 
-à notre intelligence artificielle (Qwen) hébergée sur l'API FastAPI (Backend).
-
-Fonctionnalités clés :
-1. Recherche dynamique (Scraping ou API) d'essais cliniques (Demande d'Arnaud implémentée).
-2. Extraction RAG : Interrogation de l'API pour extraire les critères complexes.
-3. Chatbot Interactif : Permet de discuter avec les documents vectorisés.
-"""
-
 import os
 import sys
 import time
-import requests
-import glob
 import json
+import re
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import streamlit as st
+import pandas as pd
 
-# Ajouter le dossier courant au PATH pour les imports
+# Ajouter le dossier parent au PATH pour les imports (scripts/…)
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 try:
-    from scripts.live_scraper import run_scraper, download_pdf_for_nctid
+    from scripts.live_scraper import download_pdf_for_nctid
 except ImportError:
-    st.error("Impossible d'importer le scraper. Assurez-vous que scripts/live_scraper.py existe.")
-    run_scraper = None
     download_pdf_for_nctid = None
-
-try:
-    from scripts.generate_fields_summary import generate_summary_df, check_module_fields, MODULES
-except ImportError:
-    generate_summary_df = None
 
 st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
 
-# Image d'en-tête (Bannière médicale tech)
+
+# --------------------------------------------------------------------------- #
+# Summary table : logique autonome (champs de Jérémie)
+# Construite à partir du JSON déjà récupéré à la recherche -> AUCUNE 2e requête.
+# --------------------------------------------------------------------------- #
+def _safe_get(d, *keys):
+    cur = d
+    for k in keys:
+        if isinstance(cur, dict) and k in cur:
+            cur = cur[k]
+        else:
+            return None
+    return cur
+
+
+def study_summary_row(sj):
+    ps = "protocolSection"
+    inters = _safe_get(sj, ps, "armsInterventionsModule", "interventions") or []
+    int_names = " | ".join(i.get("name") for i in inters if i.get("name")) or "N/A"
+    int_types = " | ".join(i.get("type") for i in inters if i.get("type")) or "N/A"
+    outcomes = _safe_get(sj, ps, "outcomesModule", "primaryOutcomes") or []
+    outcome = " | ".join(o.get("measure") for o in outcomes if o.get("measure")) or "N/A"
+    phases = _safe_get(sj, ps, "designModule", "phases")
+    return {
+        "NCT_ID": _safe_get(sj, ps, "identificationModule", "nctId"),
+        "Official Title": _safe_get(sj, ps, "identificationModule", "officialTitle") or "N/A",
+        "Study Type": _safe_get(sj, ps, "designModule", "studyType") or "N/A",
+        "Phase": ", ".join(phases) if phases else "N/A",
+        "Primary Purpose": _safe_get(sj, ps, "designModule", "designInfo", "primaryPurpose") or "N/A",
+        "Enrollment Count": _safe_get(sj, ps, "designModule", "enrollmentInfo", "count") or "N/A",
+        "Eligibility Criteria": "Présent" if _safe_get(sj, ps, "eligibilityModule", "eligibilityCriteria") else "Absent",
+        "Intervention Type": int_types,
+        "Intervention Name": int_names,
+        "Primary Outcome Measure": outcome,
+    }
+
+# --------------------------------------------------------------------------- #
+# Définition des champs (table de Jérémie)
+# --------------------------------------------------------------------------- #
+# Champs proposés dans les menus déroulants de recherche (onglet 1)
+QUERY_FIELDS = ["Condition", "MinimumAge", "MaximumAge", "Sex", "HealthyVolunteers",
+                "InterventionType", "Phase", "StudyType", "DesignPrimaryPurpose"]
+
+# Valeurs fixes -> vrai menu déroulant (moins de 10 options)
+ENUM_OPTIONS = {
+    "Sex": ["ALL", "FEMALE", "MALE"],
+    "HealthyVolunteers": ["Yes", "No"],
+    "InterventionType": ["DRUG", "DEVICE", "BIOLOGICAL", "PROCEDURE", "RADIATION",
+                          "BEHAVIORAL", "GENETIC", "DIETARY_SUPPLEMENT",
+                          "COMBINATION_PRODUCT", "DIAGNOSTIC_TEST", "OTHER"],
+    "Phase": ["EARLY_PHASE1", "PHASE1", "PHASE2", "PHASE3", "PHASE4", "NA"],
+    "StudyType": ["INTERVENTIONAL", "OBSERVATIONAL", "EXPANDED_ACCESS"],
+    "DesignPrimaryPurpose": ["TREATMENT", "PREVENTION", "DIAGNOSTIC", "SUPPORTIVE_CARE",
+                             "SCREENING", "HEALTH_SERVICES_RESEARCH", "BASIC_SCIENCE",
+                             "DEVICE_FEASIBILITY", "OTHER"],
+}
+# Champs du filtre "post-JSON" (onglet 3, appliqué sur les résultats)
+FILTER_FIELDS = ["EligibilityCriteria", "PrimaryOutcomeMeasure",
+                 "InterventionName", "Phase", "StudyType"]
+
+# Libellés francisés à afficher (comme Christopher : "Maladie (Condition)").
+# Les autres champs gardent leur nom API en anglais.
+FIELD_LABELS = {"Condition": "Maladie (Condition)"}
+
+# --------------------------------------------------------------------------- #
+# État de session
+# --------------------------------------------------------------------------- #
+for k, v in {"search_done": False, "analysis_done": False,
+             "found_studies": [], "force_pdf": False, "latest_query": "",
+             "latest_results": [], "extracted_docs": [],
+             "chat_history": [], "demo_cache": {}}.items():
+    st.session_state.setdefault(k, v)
+
+# --------------------------------------------------------------------------- #
+# En-tête + sidebar
+# --------------------------------------------------------------------------- #
 banner_path = os.path.join(os.path.dirname(__file__), "assets", "dashboard_medical.jpg")
 if os.path.exists(banner_path):
     _, col_img, _ = st.columns([1, 2, 1])
@@ -56,364 +107,364 @@ st.title("🫀 Moteur d'Extraction & Chatbot Clinique")
 st.markdown("### Architecture de bout en bout (ETL Hybride & vLLM)")
 st.markdown("---")
 
-# Initialisation de l'état
-if "extracted_docs" not in st.session_state:
-    st.session_state.extracted_docs = []
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-# Sidebar - Informations Projet
 st.sidebar.title("Clinical Protocols Standardization")
 st.sidebar.markdown("**Projet Jedha - Bootcamp AIFS01**")
-
 st.sidebar.markdown("---")
 st.sidebar.subheader("👨‍💻 L'Équipe")
 st.sidebar.markdown("Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau")
-
-st.sidebar.markdown("---")
-with st.sidebar.expander("📌 Objectifs & Contexte", expanded=False):
-    st.markdown("""
-    **Objectifs :** Convertir les protocoles d'essais cliniques sous forme de texte libre en jeux de données standardisés et structurés.
-    
-    Le projet se concentre sur la conception et l'implémentation de pipelines basés sur l'IA. 
-    
-    **Tâches techniques :** Création de workflows d'extraction multi-étapes avec des LLM, décomposition du contenu en concepts cliniques atomiques, recherche sémantique, plongements vectoriels (embeddings), et mapping vers des taxonomies médicales contrôlées. 
-    
-    **Tâches fonctionnelles :** Support de la curation de données cliniques, amélioration de la cohérence et de la qualité des informations extraites, et création de jeux de données prêts pour l'analyse (conception d'essais cliniques et optimisation de protocoles).
-    """)
-
-with st.sidebar.expander("⚙️ Architecture (Backbone)", expanded=False):
-    st.markdown("""
-    **Pipeline ETL Hybride et RAG accéléré sur GPU :**
-    - **Entrées :** API officielle ClinicalTrials (JSON massifs) ou PDFs scannés (Fallback).
-    - **Moteur d'Intelligence :** Modèle **Qwen** (LLM Génératif) propulsé par **vLLM** sur GPU, couplé à **BioBERT** pour les embeddings vectoriels.
-    - **Sorties :** Jeux de données structurés (JSON/CSV) prêts pour l'analyse.
-    - **Objectif métier :** Résoudre l'hétérogénéité des protocoles cliniques grâce à une IA capable de lire du texte libre ou des PDFs complexes, et alimenter un Assistant Chatbot RAG omniscient.
-    """)
-
-with st.sidebar.expander("🚀 MLOps & Ops", expanded=False):
-    st.markdown("""
-    - **Zone de Rejet :** Isolation des documents corrompus sans bloquer le pipeline.
-    - **Observabilité :** Monitoring des latences et requêtes avec **MLflow**.
-    - **Déploiement :** Infrastructure as Code (Terraform), Containerisation (Docker) et automatisation (CRON).
-    - **Stockage :** Base de données vectorielle et Object Store sur **Supabase**.
-    """)
-
 st.sidebar.markdown("---")
 st.sidebar.header("Configuration API")
 st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (GPU)")
-st.sidebar.metric(label="Moteur Inférence", value="vLLM + Qwen 0.5B")
-st.sidebar.info("Cette interface héberge Streamlit et le scraping, et délègue l'intelligence (Extraction & RAG) au GPU via l'API.")
-api_url = st.sidebar.text_input("URL de l'API Lightning AI:", value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"), key="api_url_input")
-
+st.sidebar.metric(label="Moteur Inférence", value="vLLM + Qwen")
+api_url = st.sidebar.text_input(
+    "URL de l'API Lightning AI:",
+    value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"),
+    key="api_url_input")
 if st.session_state.api_url_input:
     os.environ["LIGHTNING_AI_API_URL"] = st.session_state.api_url_input
 
-tab1, tab2 = st.tabs(["📄 Extraction & Ingestion", "💬 Chatbot RAG"])
 
-with tab1:
-    st.header("1. Ingestion & Extraction")
-    
-    # Demande d'Arnaud : Champs spécifiques plutôt que recherche globale
-    search_type = st.selectbox("Critère de recherche :", [
-        "Maladie (Condition)", 
-        "InterventionName", 
-        "Phase", 
-        "StudyType", 
-        "EligibilityCriteria", 
-        "PrimaryOutcomeMeasure"
-    ])
-    
-    query = st.text_input(f"Valeur recherchée (ex: Breast Cancer, Aspirin, PHASE2...)")
-    max_results = st.slider("Nombre d'essais cliniques à extraire :", min_value=1, max_value=10, value=2)
-    force_pdf = st.checkbox("📥 Ignorer le texte natif et forcer le scraping PDF (Plan B)")
-    
-    if st.button("Lancer l'Extraction Complète"):
-        if query and run_scraper:
-            query = query.strip()
-            
-            with st.spinner("Étape 1/2 : Récupération des données cliniques (JSON natif et/ou PDF)..."):
-                start_time = time.time()
-                output_dir = os.path.abspath(f"data/live_pdfs_{query.replace(' ', '_')}")
-                os.makedirs(output_dir, exist_ok=True)
-                
-                tasks = []
-                # Mapping du choix de l'utilisateur vers les paramètres de l'API v2 de ClinicalTrials
-                if search_type == "Maladie (Condition)":
-                    api_param = f"query.cond={query}"
-                elif search_type == "InterventionName":
-                    api_param = f"query.intr={query}"
-                elif search_type == "Phase":
-                    api_param = f"filter.phase={query}"
-                elif search_type == "StudyType":
-                    api_param = f"filter.studyType={query}"
-                else:
-                    # Pour EligibilityCriteria et PrimaryOutcomeMeasure, query.term fouille tout le texte
-                    api_param = f"query.term={query}"
-                    
-                # Appeler l'API officielle
-                if force_pdf:
-                    # Si on force le PDF, il faut chercher des essais qui ont VRAIMENT un PDF attaché
-                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?{api_param}&pageSize=50&fields=NCTId,ProtocolSection,DocumentSection"
-                    try:
-                        resp = requests.get(api_url_ct, timeout=10)
-                        studies = resp.json().get("studies", [])
-                        for study in studies:
-                            nct_id = study.get("protocolSection", {}).get("identificationModule", {}).get("nctId")
-                            docs = study.get("documentSection", {}).get("largeDocumentModule", {}).get("largeDocs", [])
-                            has_pdf = any(str(d.get("filename", "")).lower().endswith(".pdf") for d in docs)
-                            if has_pdf:
-                                tasks.append({"type": "pdf", "nct_id": nct_id})
-                            if len(tasks) >= max_results:
-                                break
-                    except Exception as e:
-                        st.error(f"Erreur API ClinicalTrials: {e}")
-                else:
-                    # Recherche standard (priorité au texte)
-                    api_url_ct = f"https://clinicaltrials.gov/api/v2/studies?{api_param}&pageSize={max_results}&fields=NCTId,ProtocolSection"
-                    try:
-                        resp = requests.get(api_url_ct, timeout=10)
-                        studies = resp.json().get("studies", [])
-                        for study in studies:
-                            nct_id = study.get("protocolSection", {}).get("identificationModule", {}).get("nctId")
-                            try:
-                                eligibility = study["protocolSection"]["eligibilityModule"]["eligibilityCriteria"]
-                                if len(eligibility) > 100:
-                                    tasks.append({"type": "text", "nct_id": nct_id, "text": eligibility})
-                                    continue
-                            except KeyError:
-                                pass
-                            # Fallback sur le PDF si pas de texte (rare, et échouera s'il n'y a pas de PDF)
-                            tasks.append({"type": "pdf", "nct_id": nct_id})
-                    except Exception as e:
-                        st.error(f"Erreur API ClinicalTrials: {e}")
-                
-                st.success(f"✅ Données récupérées (ou identifiées) en {time.time() - start_time:.1f}s")
-                
-            if not tasks:
-                st.warning("Aucun essai trouvé pour cette requête.")
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+def lock_need_search():
+    """Onglet 2 : tant qu'aucune recherche n'a été lancée."""
+    st.info("🔒 Lancez d'abord une recherche dans l'onglet « 🔎 Critères de sélection ».")
+
+
+def lock_need_analysis():
+    """Onglets 3 & 4 : tant que la Summary table n'a pas généré l'extraction GPU."""
+    st.info("🔒 Cochez des études dans « 📑 Summary table » puis cliquez "
+            "« 🚀 Analyser (GPU) » pour débloquer cet onglet.")
+
+
+def build_api_query(values):
+    """Construit l'URL de requête ClinicalTrials v2 à partir des critères choisis.
+    - Condition -> query.cond (recherche textuelle)
+    - champs à valeurs fixes -> filter.advanced (syntaxe Essie AREA[...])
+    - Age -> géré en post-filtre (voir age_ok)
+    Retourne (query_string, label_lisible)."""
+    parts, adv, label = [], [], ""
+    for f, val in values.items():
+        if not val:
+            continue
+        if f == "Condition":
+            parts.append(f"query.cond={requests.utils.quote(str(val))}")
+            label = str(val)
+        elif f in ENUM_OPTIONS:
+            vals = val if isinstance(val, list) else [val]
+            sub = []
+            for v in vals:
+                if f == "HealthyVolunteers":
+                    v = "true" if v == "Yes" else "false"
+                sub.append(f"AREA[{f}]{v}")
+            if sub:
+                adv.append("(" + " OR ".join(sub) + ")")
+        # MinimumAge / MaximumAge : post-filtre, pas dans l'URL
+    if adv:
+        parts.append("filter.advanced=" + requests.utils.quote(" AND ".join(adv)))
+    if not parts:
+        parts.append("query.cond=cancer")   # défaut de secours
+    return "&".join(parts), (label or "recherche")
+
+
+def parse_age_years(age_str):
+    """'18 Years' -> 18 ; None si non parsable."""
+    if not age_str:
+        return None
+    m = re.search(r"(\d+)", str(age_str))
+    return int(m.group(1)) if m else None
+
+
+def age_ok(study, user_min, user_max):
+    """Garde l'étude si sa tranche d'âge chevauche [user_min, user_max]."""
+    if not user_min and not user_max:
+        return True
+    elig = study.get("protocolSection", {}).get("eligibilityModule", {})
+    s_min = parse_age_years(elig.get("minimumAge")) or 0
+    s_max = parse_age_years(elig.get("maximumAge")) or 120
+    if user_min and s_max < user_min:
+        return False
+    if user_max and s_min > user_max:
+        return False
+    return True
+
+
+def build_task(study, force_pdf):
+    """Décide, pour une étude déjà récupérée, si on l'envoie en 'text' ou 'pdf'."""
+    nct_id = _safe_get(study, "protocolSection", "identificationModule", "nctId")
+    if force_pdf:
+        docs = _safe_get(study, "documentSection", "largeDocumentModule", "largeDocs") or []
+        if any(str(d.get("filename", "")).lower().endswith(".pdf") for d in docs):
+            return {"type": "pdf", "nct_id": nct_id}
+    elig = _safe_get(study, "protocolSection", "eligibilityModule", "eligibilityCriteria") or ""
+    if len(elig) > 100:
+        return {"type": "text", "nct_id": nct_id, "text": elig}
+    return {"type": "pdf", "nct_id": nct_id}
+
+
+def run_gpu_extraction(tasks, label, api_url, output_dir):
+    """Envoie les études sélectionnées au serveur GPU (vLLM). Retourne les résultats."""
+    results = []
+    for task in tasks:
+        nct_id = task["nct_id"]
+        if nct_id in st.session_state.demo_cache:
+            results.append(st.session_state.demo_cache[nct_id])
+            continue
+        try:
+            if task["type"] == "text":
+                resp = requests.post(
+                    f"{api_url}/process_text",
+                    data={"disease": label, "document_id": nct_id,
+                          "text_content": task["text"]},
+                    headers={"Bypass-Tunnel-Reminder": "true"})
             else:
-                if "demo_cache" not in st.session_state:
-                    st.session_state.demo_cache = {}
-                    
-                with st.spinner(f"Étape 2/2 : Envoi de {len(tasks)} protocoles au serveur GPU (vLLM) & MLflow..."):
-                    start_time = time.time()
-                    results = []
-                    
-                    for task in tasks:
-                        nct_id = task["nct_id"]
-                        
-                        # --- CACHE: Si on a déjà extrait ce JSON aujourd'hui, on le ressort instantanément ---
-                        if nct_id in st.session_state.demo_cache:
-                            results.append(st.session_state.demo_cache[nct_id])
-                            st.session_state.extracted_docs.append(nct_id)
-                            continue
-                            
-                        try:
-                            if task["type"] == "text":
-                                # Mode rapide : Texte direct
-                                response = requests.post(
-                                    f"{api_url}/process_text",
-                                    data={"disease": query, "document_id": nct_id, "text_content": task["text"]},
-                                    headers={"Bypass-Tunnel-Reminder": "true"}
-                                )
-                            else:
-                                # Mode fallback : Téléchargement PDF puis envoi
-                                pdf_path = download_pdf_for_nctid(nct_id, output_dir) if download_pdf_for_nctid else None
-                                if pdf_path and os.path.exists(pdf_path):
-                                    with open(pdf_path, "rb") as f:
-                                        response = requests.post(
-                                            f"{api_url}/process_pdf",
-                                            files={"file": (f"{nct_id}.pdf", f, "application/pdf")},
-                                            data={"disease": query},
-                                            headers={"Bypass-Tunnel-Reminder": "true"}
-                                        )
-                                else:
-                                    st.warning(f"Impossible de trouver le texte ou le PDF pour l'essai {nct_id}")
-                                    continue
-                                    
-                            if response.status_code == 200:
-                                data = response.json()
-                                
-                                raw_text = data.get("extraction", "")
-                                if isinstance(raw_text, str):
-                                    raw_text = raw_text.strip()
-                                    # Regex agressive pour trouver TOUT ce qui ressemble à un dictionnaire JSON
-                                    import re
-                                    match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
-                                    if match:
-                                        potential_json = match.group(1)
-                                        try:
-                                            # On nettoie un peu au cas où
-                                            cleaned = potential_json.replace('"\n"', '",\n"').replace(']\n"', '],\n"').replace('}\n"', '},\n"')
-                                            data["extraction"] = json.loads(cleaned)
-                                        except Exception:
-                                            try:
-                                                data["extraction"] = json.loads(potential_json)
-                                            except Exception:
-                                                data["extraction"] = {"parse_error": "JSON invalide", "raw": raw_text}
-                                    else:
-                                        data["extraction"] = {"parse_error": "Aucun { trouvé", "raw": raw_text}
-                                
-                                results.append(data)
-                                st.session_state.demo_cache[nct_id] = data
-                                st.session_state.extracted_docs.append(data["document"])
-                            else:
-                                st.error(f"Erreur API ({response.status_code}) pour {nct_id}: {response.text}")
-                        except Exception as e:
-                            st.error(f"Impossible de traiter l'essai {nct_id} : {e}")
-                            
-                    st.success(f"✅ Inférence GPU terminée (V2) en {time.time() - start_time:.1f}s")
-                
-                # Sauvegarde en mémoire pour survivre au changement d'onglet
-                st.session_state.latest_results = results
-                st.session_state.latest_query = query
-                
-    # Affichage (En dehors du bouton pour rester visible)
-    if getattr(st.session_state, 'latest_results', []):
-        results = st.session_state.latest_results
-        query = st.session_state.latest_query
-        
-        st.session_state.extracted_docs = list(set(st.session_state.extracted_docs)) # Deduplicate
-        
-        flattened_data = []
-        for res in results:
-            doc_id = res['document']
-            disease = res.get('disease', 'N/A')
-            ext = res.get("extraction", {})
-            
-            with st.expander(f"📄 Essai: {doc_id} - Pathologie: {disease}", expanded=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown(f"**🌐 Source Officielle :** [Voir sur ClinicalTrials.gov](https://clinicaltrials.gov/study/{doc_id})")
-                with col2:
-                    supabase_url = os.getenv("SUPABASE_API_URL", "").rstrip("/")
-                    if supabase_url:
-                        pdf_link = f"{supabase_url}/storage/v1/object/public/clinical_pdfs/{doc_id}.pdf"
-                        st.markdown(f"**📥 Archive PDF :** [Télécharger depuis Supabase]({pdf_link}) *(Uniquement si scrapé en Plan B)*")
-                st.json(ext)
-            # Extraction robuste pour gérer les listes de dictionnaires OU les listes de strings
-            meds_list = ext.get("medications", []) if isinstance(ext, dict) else []
-            meds = ", ".join([str(m.get("name", m.get("description", ""))) if isinstance(m, dict) else str(m) for m in meds_list])
-            
-            criteria_list = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
-            criteria = ", ".join([str(c.get("description", c.get("category", ""))) if isinstance(c, dict) else str(c) for c in criteria_list])
-            
-            condition = ext.get("condition", "") if isinstance(ext, dict) else ""
-            
-            flattened_data.append({
-                "Document": doc_id,
-                "Pathologie": disease,
-                "Condition Principale": condition,
-                "Médicaments (Drug)": meds,
-                "Critères (Measurement)": criteria
-            })
-        
-        st.markdown("---")
-        st.subheader("📊 Tableau de Bord Clinique")
-        import pandas as pd
-        df = pd.DataFrame(flattened_data)
-        st.dataframe(df, use_container_width=True)
-        
-        # Fix: Utilisation de utf-8-sig pour que Excel lise bien les accents
-        csv = df.to_csv(index=False, sep=';').encode('utf-8-sig')
-        st.download_button(
-            label="📥 Exporter les extractions (Excel/CSV)",
-            data=csv,
-            file_name=f"extractions_{query.replace(' ', '_')}.csv",
-            mime="text/csv"
-        )
-        
-        # --- NEW: Tableau de Résumé des champs (API JSON) ---
-        if generate_summary_df is not None:
-            st.markdown("---")
-            st.subheader("📑 Disponibilité des Champs Source (ClinicalTrials API)")
-            st.markdown("Aperçu de la complétude des JSON officiels pour les essais ciblés, afin d'évaluer la qualité de la donnée source.")
-            
-            # Fetch JSON from API for these NCTs
-            nct_list = [res['document'] for res in results]
-            
-            with st.spinner("Analyse de la qualité des données sources..."):
-                studies_summary = []
-                for nct_id in nct_list:
-                    url = f"https://clinicaltrials.gov/api/v2/studies/{nct_id}"
-                    try:
-                        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-                        if resp.status_code == 200:
-                            studies_summary.append({"id": nct_id, "data": resp.json()})
-                    except Exception:
-                        pass
-                
-                if studies_summary:
-                    df_summary = generate_summary_df(studies_summary)
-                    
-                    # Fonction pour coloriser les cellules (vert/jaune/rouge) dans Streamlit
-                    def color_cells(val):
-                        if val == "Yes":
-                            return 'background-color: #d4edda; color: #155724;' # Vert pastel
-                        elif val == "Partial":
-                            return 'background-color: #fff3cd; color: #856404;' # Jaune pastel
-                        elif val == "No":
-                            return 'background-color: #f8d7da; color: #721c24;' # Rouge pastel
-                        return ''
-
-                    styled_df = df_summary.style.map(color_cells, subset=pd.IndexSlice[:, nct_list])
-                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
-                    
-                    csv_summary = df_summary.to_csv(index=False, sep=';').encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 Exporter le tableau de complétude (Excel/CSV)",
-                        data=csv_summary,
-                        file_name=f"api_completude_{query.replace(' ', '_')}.csv",
-                        mime="text/csv"
-                    )
-
-with tab2:
-    st.header("2. Assistant Chatbot RAG")
-    st.markdown("Posez vos questions sur les essais cliniques indexés en base.")
-    
-    doc_filter = st.selectbox("Filtrer par essai clinique (Optionnel) :", ["Toute la base"] + st.session_state.extracted_docs)
-    
-    # Affichage de l'historique
-    for msg in st.session_state.chat_history:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-            if "context" in msg:
-                with st.expander("🔍 Voir les sources"):
-                    for c in msg["context"]:
-                        st.caption(c)
-
-    # Zone de saisie
-    if prompt := st.chat_input("Posez votre question clinique..."):
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-            
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            message_placeholder.markdown("🧠 Réflexion en cours (Recherche vectorielle + Génération LLM)...")
-            
-            try:
-                selected_doc = None if doc_filter == "Toute la base" else doc_filter
-                
-                response = requests.post(
-                    f"{api_url}/chat_rag",
-                    data={"question": prompt, "doc_id": selected_doc},
-                    headers={"Bypass-Tunnel-Reminder": "true"}
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    answer = data.get("answer", "Erreur de génération.")
-                    context = data.get("context", [])
-                    
-                    message_placeholder.markdown(answer)
-                    with st.expander("🔍 Voir les sources utilisées"):
-                        for c in context:
-                            st.caption(c)
-                            
-                    st.session_state.chat_history.append({"role": "assistant", "content": answer, "context": context})
+                pdf_path = (download_pdf_for_nctid(nct_id, output_dir)
+                            if download_pdf_for_nctid else None)
+                if pdf_path and os.path.exists(pdf_path):
+                    with open(pdf_path, "rb") as fh:
+                        resp = requests.post(
+                            f"{api_url}/process_pdf",
+                            files={"file": (f"{nct_id}.pdf", fh, "application/pdf")},
+                            data={"disease": label},
+                            headers={"Bypass-Tunnel-Reminder": "true"})
                 else:
-                    message_placeholder.error(f"Erreur API ({response.status_code}): {response.text}")
+                    st.warning(f"Ni texte ni PDF pour {nct_id}")
+                    continue
+            if resp.status_code == 200:
+                data = resp.json()
+                raw = data.get("extraction", "")
+                if isinstance(raw, str):
+                    m = re.search(r'(\{.*\})', raw.strip(), re.DOTALL)
+                    try:
+                        data["extraction"] = json.loads(m.group(1)) if m else {"raw": raw}
+                    except Exception:
+                        data["extraction"] = {"parse_error": "JSON invalide", "raw": raw}
+                results.append(data)
+                st.session_state.demo_cache[nct_id] = data
+                st.session_state.extracted_docs.append(data.get("document", nct_id))
+            else:
+                st.error(f"Erreur API ({resp.status_code}) pour {nct_id}")
+        except Exception as e:
+            st.error(f"Impossible de traiter {nct_id} : {e}")
+    return results
+
+
+def results_to_df(results):
+    """Aplatit les résultats d'extraction en tableau."""
+    rows = []
+    for res in results:
+        ext = res.get("extraction", {})
+        meds = ext.get("medications", []) if isinstance(ext, dict) else []
+        meds = ", ".join(str(m.get("name", m.get("description", ""))) if isinstance(m, dict)
+                         else str(m) for m in meds)
+        crit = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
+        crit = ", ".join(str(c.get("description", c.get("category", ""))) if isinstance(c, dict)
+                         else str(c) for c in crit)
+        rows.append({
+            "Document": res.get("document", "N/A"),
+            "Pathologie": res.get("disease", "N/A"),
+            "Condition Principale": ext.get("condition", "") if isinstance(ext, dict) else "",
+            "Médicaments (Drug)": meds,
+            "Critères (Measurement)": crit,
+        })
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------- #
+# Onglets
+# --------------------------------------------------------------------------- #
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🔎 Critères de sélection",
+    "📑 Summary table",
+    "📊 Visualisation + filtre",
+    "💬 Chatbot RAG",
+])
+
+# ============================ ONGLET 1 : RECHERCHE ========================= #
+# Une seule requête ClinicalTrials. On stocke le JSON complet des études
+# (found_studies) pour la Summary table -> pas de 2e requête. Aucune IA ici.
+with tab1:
+    st.header("1. Sélection des critères")
+    st.markdown("Choisis **un ou plusieurs** critères, puis renseigne leurs valeurs.")
+
+    label_to_field = {FIELD_LABELS.get(f, f): f for f in QUERY_FIELDS}
+    sel_labels = st.multiselect("Critères de recherche :", list(label_to_field.keys()),
+                                default=["Maladie (Condition)"])
+    selected = [label_to_field[l] for l in sel_labels]
+
+    values = {}
+    cols = st.columns(2)
+    for i, f in enumerate(selected):
+        disp = FIELD_LABELS.get(f, f)
+        with cols[i % 2]:
+            if f in ENUM_OPTIONS:
+                values[f] = st.multiselect(disp, ENUM_OPTIONS[f], key=f"val_{f}")
+            elif f in ("MinimumAge", "MaximumAge"):
+                values[f] = st.number_input(disp + " (années)", min_value=0, max_value=120,
+                                            value=0, key=f"val_{f}")
+            else:  # Condition (texte libre)
+                values[f] = st.text_input(disp + " (ex: Breast Cancer)", key=f"val_{f}")
+
+    c1, c2 = st.columns(2)
+    max_results = c1.slider("Nombre d'essais à récupérer :", 1, 20, 5)
+    force_pdf = c2.checkbox("📥 Forcer le scraping PDF (Plan B)")
+
+    if st.button("🚀 Lancer la recherche", type="primary"):
+        api_query, label = build_api_query(values)
+        user_min = values.get("MinimumAge") or 0
+        user_max = values.get("MaximumAge") or 0
+
+        with st.spinner("Interrogation de l'API ClinicalTrials..."):
+            t0 = time.time()
+            kept = []
+            url_ct = (f"https://clinicaltrials.gov/api/v2/studies?{api_query}"
+                      f"&pageSize=50&fields=NCTId,ProtocolSection,DocumentSection")
+            try:
+                studies = requests.get(url_ct, timeout=15).json().get("studies", [])
+                for study in studies:
+                    if not age_ok(study, user_min, user_max):
+                        continue
+                    kept.append(study)
+                    if len(kept) >= max_results:
+                        break
             except Exception as e:
-                message_placeholder.error(f"Impossible de joindre l'API : {e}")
+                st.error(f"Erreur API ClinicalTrials : {e}")
+            elapsed = time.time() - t0
+
+        if not kept:
+            st.warning("Aucun essai trouvé pour ces critères.")
+        else:
+            # Nouvelle recherche -> on réinitialise l'analyse GPU précédente.
+            st.session_state.found_studies = kept
+            st.session_state.force_pdf = force_pdf
+            st.session_state.latest_query = label
+            st.session_state.search_done = True
+            st.session_state.analysis_done = False
+            st.session_state.latest_results = []
+            st.session_state.extracted_docs = []
+            st.success(f"✅ {len(kept)} essai(s) récupéré(s) en {elapsed:.1f}s. "
+                       "Va dans l'onglet « 📑 Summary table ».")
+
+
+# ============================ ONGLET 2 : SUMMARY TABLE ===================== #
+# 100% ClinicalTrials, aucun GPU. C'est ici qu'on coche les études à analyser,
+# puis qu'on déclenche l'extraction GPU (qui débloque les onglets 3 & 4).
+with tab2:
+    st.header("2. Summary table (champs source ClinicalTrials)")
+    if not st.session_state.search_done:
+        lock_need_search()
+    else:
+        rows = [study_summary_row(s) for s in st.session_state.found_studies]
+        df_sum = pd.DataFrame(rows)
+        df_sum.insert(0, "Analyser", False)
+
+        st.caption("Coche les études à envoyer au modèle, puis clique « Analyser (GPU) ».")
+        edited = st.data_editor(
+            df_sum, hide_index=True, use_container_width=True,
+            column_config={"Analyser": st.column_config.CheckboxColumn(
+                "Analyser", help="Cocher pour envoyer cette étude au GPU")},
+            disabled=[c for c in df_sum.columns if c != "Analyser"],
+            key="summary_editor")
+
+        selected_ncts = edited.loc[edited["Analyser"] == True, "NCT_ID"].tolist()
+
+        st.download_button("📥 Exporter la table (CSV)",
+                           df_sum.drop(columns=["Analyser"]).to_csv(index=False, sep=';').encode('utf-8-sig'),
+                           file_name="summary_table.csv", mime="text/csv")
+
+        st.markdown("---")
+        cbtn, cinfo = st.columns([1, 2])
+        launch = cbtn.button(f"🚀 Analyser {len(selected_ncts)} étude(s) cochée(s) (GPU)",
+                             type="primary", disabled=not selected_ncts)
+        cinfo.caption("Nécessite le serveur GPU allumé. Débloque les onglets 3 & 4.")
+
+        if launch:
+            label = st.session_state.latest_query
+            output_dir = os.path.abspath(f"data/live_pdfs_{label.replace(' ', '_')}")
+            os.makedirs(output_dir, exist_ok=True)
+            sel_studies = [s for s in st.session_state.found_studies
+                           if _safe_get(s, "protocolSection", "identificationModule", "nctId") in selected_ncts]
+            tasks = [build_task(s, st.session_state.force_pdf) for s in sel_studies]
+            with st.spinner(f"Envoi de {len(tasks)} protocole(s) au GPU (vLLM)..."):
+                t0 = time.time()
+                results = run_gpu_extraction(tasks, label, api_url, output_dir)
+                st.session_state.latest_results = results
+                st.session_state.extracted_docs = list(set(st.session_state.extracted_docs))
+                if results:
+                    st.session_state.analysis_done = True
+                    st.success(f"✅ Extraction terminée en {time.time() - t0:.1f}s — "
+                               "onglets 3 & 4 débloqués.")
+                else:
+                    st.warning("Aucun résultat renvoyé par le GPU (serveur éteint ?).")
+
+        if st.session_state.analysis_done and st.session_state.latest_results:
+            with st.expander("🔎 Aperçu des extractions générées"):
+                for res in st.session_state.latest_results:
+                    st.markdown(f"**{res.get('document', 'N/A')}** — {res.get('disease', 'N/A')}")
+                    st.json(res.get("extraction", {}))
+
+
+# ============================ ONGLET 3 : VISUALISATION ===================== #
+with tab3:
+    st.header("3. Visualisation & filtre des résultats")
+    if not st.session_state.analysis_done:
+        lock_need_analysis()
+    else:
+        df = results_to_df(st.session_state.latest_results)
+
+        # --- Filtre post-JSON (champs de Jérémie) ---
+        with st.expander("🔎 Filtrer les résultats (filtre post-JSON)", expanded=True):
+            st.caption("Champs de filtre : " + ", ".join(FILTER_FIELDS))
+            txt = st.text_input("Filtre texte (cherche dans Condition / Médicaments / Critères) :")
+        if txt:
+            mask = df.apply(lambda row: txt.lower() in " ".join(row.astype(str)).lower(), axis=1)
+            df = df[mask]
+
+        st.subheader("📊 Tableau de bord clinique")
+        st.dataframe(df, use_container_width=True)
+        st.download_button("📥 Exporter les extractions (CSV)",
+                           df.to_csv(index=False, sep=';').encode('utf-8-sig'),
+                           file_name="extractions.csv", mime="text/csv")
+
+        # --- Petit graphique : nb d'entités par type ---
+        counts = {"Condition": 0, "Médicaments": 0, "Critères": 0}
+        for _, row in df.iterrows():
+            counts["Condition"] += 1 if row["Condition Principale"] else 0
+            counts["Médicaments"] += len([m for m in str(row["Médicaments (Drug)"]).split(",") if m.strip()])
+            counts["Critères"] += len([c for c in str(row["Critères (Measurement)"]).split(",") if c.strip()])
+        st.subheader("Répartition des entités extraites")
+        st.bar_chart(pd.DataFrame({"Nombre": counts}))
+
+
+# ============================ ONGLET 4 : RAG =============================== #
+with tab4:
+    st.header("4. Assistant Chatbot RAG")
+    if not st.session_state.analysis_done:
+        lock_need_analysis()
+    else:
+        doc_filter = st.selectbox("Filtrer par essai (Optionnel) :",
+                                  ["Toute la base"] + st.session_state.extracted_docs)
+        for msg in st.session_state.chat_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+        if prompt := st.chat_input("Posez votre question clinique..."):
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            with st.chat_message("assistant"):
+                ph = st.empty()
+                ph.markdown("🧠 Recherche vectorielle + génération...")
+                try:
+                    sel = None if doc_filter == "Toute la base" else doc_filter
+                    r = requests.post(f"{api_url}/chat_rag",
+                                      data={"question": prompt, "doc_id": sel},
+                                      headers={"Bypass-Tunnel-Reminder": "true"})
+                    if r.status_code == 200:
+                        ans = r.json().get("answer", "Erreur de génération.")
+                        ph.markdown(ans)
+                        st.session_state.chat_history.append({"role": "assistant", "content": ans})
+                    else:
+                        ph.error(f"Erreur API ({r.status_code})")
+                except Exception as e:
+                    ph.error(f"Impossible de joindre l'API : {e}")
