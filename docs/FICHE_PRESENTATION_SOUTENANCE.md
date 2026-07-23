@@ -109,3 +109,4 @@ L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites
 1.  **Traitement Multi-Modal :** Ajouter la capacité de lire et comprendre les tableaux, graphiques et images souvent présents dans les PDF complexes.
 2.  **Scalabilité Cloud (Kubernetes) :** Passer d'un seul conteneur GPU (Lightning.ai) à un cluster Kubernetes capable d'auto-scaler le nombre de GPUs en fonction du volume d'essais entrants.
 3.  **Workflows d'Agents IA :** Connecter notre LLM à des bases externes (PubMed, WHO) pour qu'il vérifie ou croise ses extractions de lui-même (Agentic RAG).
+4.  **Détection du Data Drift (Human-in-the-Loop) :** Mettre en place un système de signalement des erreurs par les médecins dans l'interface, afin de détecter silencieusement le "Drift" (nouveau vocabulaire médical, nouvelles maladies) et déclencher automatiquement un ré-entraînement (QLoRA) de mise à jour.
