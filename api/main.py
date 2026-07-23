@@ -175,16 +175,26 @@ def process_extracted_text(text: str, filename: str, disease: str, start_time: f
         context = "\n\n".join([f"Extrait:\n{r[0]}" for r in results])
         
         # --- 4. EXTRACTION JSON (REDUCE / GENERATOR) ---
-        prompt = f"""You are a clinical trials expert. Extract the medications and patient inclusion criteria for {disease} from the following text extracts.
-Format your answer in clear JSON format: {{"condition": "...", "medications": [...], "inclusion_criteria": "..."}}
+        prompt = f"""Analyze the following clinical trial extracts and extract structured information regarding the disease: {disease}.
 
-Context Extracts:
+REQUIREMENTS:
+1. "condition": The main disease or condition being studied (string).
+2. "medications": A list of all drugs, treatments, or therapies mentioned (array of strings). If none, return an empty array [].
+3. "inclusion_criteria": A summary of the patient inclusion and exclusion criteria (string).
+
+CONTEXT EXTRACTS:
 {context}
 
-Response (JSON only):
+OUTPUT FORMAT:
+Return ONLY a valid JSON object matching the exact following schema, without any markdown formatting or explanations:
+{{
+  "condition": "string",
+  "medications": ["string"],
+  "inclusion_criteria": "string"
+}}
 """
         messages = [
-            {"role": "system", "content": "You are a helpful and precise medical AI assistant."},
+            {"role": "system", "content": "You are an expert clinical data extractor. Your task is to extract structured medical information from clinical trial texts and output ONLY valid JSON."},
             {"role": "user", "content": prompt}
         ]
         
@@ -344,16 +354,17 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
         context = "\n\n".join([f"Extrait:\n{r[0]}" for r in results])
         
         # 3. Construction du Prompt : On donne le contexte (les extraits) ET la question (User) au LLM
-        prompt = f"""You are a helpful medical assistant. Answer the user's question based ONLY on the following context extracts. If you don't know the answer based on the context, say so. Answer in French.
+        prompt = f"""Réponds à la question de l'utilisateur en te basant UNIQUEMENT sur les extraits de contexte médical ci-dessous. 
+Si la réponse ne se trouve pas dans le contexte, indique clairement que tu ne possèdes pas l'information. Ne donne jamais de conseils médicaux.
 
-Context Extracts:
+CONTEXTE MÉDICAL:
 {context}
 
-Question: {question}
-Answer:"""
+QUESTION: {question}
+RÉPONSE:"""
 
         messages = [
-            {"role": "system", "content": "You are a helpful medical AI."},
+            {"role": "system", "content": "Tu es un assistant IA médical expert, francophone, précis et factuel."},
             {"role": "user", "content": prompt}
         ]
         
