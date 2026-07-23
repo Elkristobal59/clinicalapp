@@ -9,7 +9,7 @@ L'application suit une architecture hautement optimisée (FinOps) séparant dras
 - **Branche A (Recherche Instantanée & Gratuite)** : L'application interroge l'API officielle ClinicalTrials V2 via des requêtes ciblées. Les résultats (Titre, Phase, Maladie) sont immédiatement affichés dans un tableau Streamlit. **Cette étape ne consomme aucune ressource IA.**
 - **Branche B (Extraction RAG Hybride via GPU)** : Uniquement lorsque l'utilisateur sélectionne une étude spécifique, le pipeline IA est déclenché sur un serveur distant (Lightning AI).
   - **Le Retriever (BioBERT)** : Fragmente le texte de l'essai et isole uniquement les paragraphes pertinents par similarité vectorielle.
-  - **Le Generator (Qwen-7B Fine-Tuné)** : Notre LLM "In-House" (optimisé via QLoRA sur le dataset CHIA) lit ce contexte ciblé et extrait un fichier JSON structuré parfait des entités médicales.
+  - **Le Generator (Qwen-7B propulsé par vLLM)** : Notre LLM "In-House" (optimisé via QLoRA sur le dataset CHIA) lit ce contexte ciblé et extrait un fichier JSON structuré parfait des entités médicales à la vitesse de l'éclair grâce au moteur d'inférence vLLM.
   - *(Voir le détail des interactions dans [SCHEMA_BIOBERT_QWEN.md](docs/SCHEMA_BIOBERT_QWEN.md))*
 - **Stockage Cloud (Supabase Storage)** : Les documents PDF bruts téléchargés en secours sont automatiquement sauvegardés dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
 - **Base Vectorielle** : Supabase avec l'extension `pgvector` et un index HNSW.
