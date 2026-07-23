@@ -6,7 +6,7 @@ from tqdm import tqdm
 import re
 
 MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
-ADAPTER_DIR = "models/qwen_7b_chia_finetuned"
+ADAPTER_DIR = "Elkristobal59/qwen-7b-chia-ner"
 TEST_DATA = "data/test_dataset.jsonl"
 OUTPUT_PREDS = "data/chia_predictions_qwen_7b.json"
 

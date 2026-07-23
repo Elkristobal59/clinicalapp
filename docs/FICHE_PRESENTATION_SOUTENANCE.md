@@ -11,29 +11,28 @@
 *   **Notre MVP (Minimum Viable Product) :** Une application Web fonctionnelle de bout en bout où un chercheur peut taper le nom d'une maladie, déclencher un pipeline d'extraction IA hybride (qui fouille les bases JSON officielles et scappe les PDFs en secours), et récupérer instantanément la donnée structurée sous forme de tableau Excel/CSV.
 *   **L'Équipe :** Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau.
 
-> **🛡️ Défense du Choix Architectural : Pourquoi un LLM brut plutôt qu'un modèle ML entraîné ?**
-> *(À utiliser si le jury demande : "Pourquoi n'y a-t-il pas de Train/Test split ou d'entraînement ?")*
-> **Réponse :** "Notre problème métier consiste à extraire de l'information de textes libres ultra-complexes (des immenses blocs textes en JSON ou des PDFs médicaux scannés). Le Machine Learning classique est inopérant sur cette tâche. Quant à entraîner ou fine-tuner un LLM de zéro, cela coûte une fortune en GPU et en temps. Nous avons donc fait un choix d'ingénieur moderne MLOps : nous exploitons un LLM open-source brut (Qwen), et toute notre valeur ajoutée réside dans l'architecture d'ingestion (notre ETL hybride), le Retrieval-Augmented Generation (RAG) et le Prompt Engineering. C'est la façon la plus performante et économique de résoudre ce problème métier."
+> **🛡️ Défense du Choix Architectural : Le "FinOps" et l'IA Hybride**
+> *(À utiliser si le jury demande : "Pourquoi avoir séparé la recherche et l'IA ?" ou "Pourquoi Qwen ?")*
+> **Réponse :** "Notre application repose sur une architecture 'FinOps' à double détente. 
+> La Branche A permet aux médecins de rechercher et filtrer des essais cliniques gratuitement et instantanément via l'API officielle, sans consommer de ressources IA. 
+> La Branche B n'allume le GPU que lorsque l'extraction est strictement nécessaire. Pour cette étape lourde, nous avons choisi un LLM Open-Source (Qwen-7B). Plutôt que de l'utiliser 'brut', nous l'avons **Fine-Tuné avec la méthode optimisée QLoRA (4-bit)** sur le standard clinique CHIA. Ainsi, son cerveau a été 'câblé' spécifiquement pour extraire les bonnes entités médicales. BioBERT s'occupe de trouver les paragraphes (Retrieval), et Qwen Fine-Tuné extrait la donnée (Generation). C'est la façon la plus performante et économique de résoudre ce problème."
 
 ---
 
-## 2. 🏗️ La Stack Technique (Vue d'ensemble)
+## 2. 🏗️ La Stack Technique (L'Architecture à Double Branche)
 **"Pour répondre à ce besoin, nous avons séparé notre application en 3 gros piliers :"**
 
-1.  **L'Interface Utilisateur (Le Frontend)**
+1.  **L'Interface et la Branche A (La Recherche Gratuite)**
     *   **Techno :** `Streamlit` (Python).
-    *   **Hébergement :** `Render` (Cloud public lié à notre GitHub) ou en Local.
-    *   **Rôle :** C'est le point d'entrée. L'utilisateur tape la maladie, visionne les extractions, peut télécharger des exports (Excel/CSV), et interagir avec un Chatbot RAG.
+    *   **Rôle :** Point d'entrée de l'utilisateur. Il fait des requêtes (menus déroulants) qui interrogent directement `clinicaltrials.gov`. Un tableau récapitulatif affiche les résultats en moins d'une seconde, sans aucun GPU.
 
-2.  **Le Moteur d'Intelligence (Le Backend GPU)**
-    *   **Techno :** `FastAPI` (pour créer l'API) + `Uvicorn`.
-    *   **Hébergement :** `Lightning.ai` (Serveur Cloud équipé d'un GPU surpuissant). On expose ce serveur à notre Frontend grâce à un pont sécurisé `LocalTunnel`.
-    *   **Rôle :** Il réceptionne les données brutes, fait tourner les modèles d'IA lourds sur la carte graphique, et renvoie de la donnée structurée.
+2.  **Le Moteur d'Intelligence - Branche B (Le Backend GPU)**
+    *   **Techno :** `vLLM` + `FastAPI` / Serveur `Lightning.ai`.
+    *   **Rôle :** Activé uniquement à la demande. Il fait tourner BioBERT (pour isoler les paragraphes pertinents) et notre Qwen-7B Fine-Tuné (pour générer le JSON structuré).
 
 3.  **Le Stockage, L'Infrastructure & L'Observabilité**
-    *   **Techno :** `Supabase` (PostgreSQL + Object Storage AWS) & `MLflow`.
-    *   **Rôle :** Archiver les documents lourds (PDFs) et stocker les métadonnées de l'ETL (Infrastructure as Code via `Terraform`).
-    *   **Observabilité & Alertes :** Nous avons rendu l'IA totalement observable via `MLflow` : nous traçons la **métrique de latence** (qui doit rester sous 4s) et surveillons la **qualité** du modèle au fil du temps. Un système d'alerte et de logs (try/except) prévient en cas de chute du serveur GPU.
+    *   **Techno :** `Supabase` (PostgreSQL + Object Storage) & `MLflow`.
+    *   **Rôle :** Archiver les PDFs et observer l'IA. `MLflow` trace la **latence** et la qualité de notre modèle Fine-Tuné.
 
 ---
 

@@ -2,17 +2,16 @@
 
 Ce projet est une application complète (Data Engineering & Data Science) permettant l'ingestion, le traitement, l'indexation vectorielle, et l'extraction sémantique d'entités depuis des protocoles cliniques (fichiers PDF).
 
-## 🏗️ Architecture du Projet (Pipeline Hybride V2)
+## 🏗️ Architecture du Projet (Pipeline Hybride Asynchrone)
 
-L'application suit une architecture hautement optimisée, gérant intelligemment la collecte et l'extraction des données :
+L'application suit une architecture hautement optimisée (FinOps) séparant drastiquement la recherche rapide (CPU) de l'extraction lourde (GPU) :
 
-- **Collecte Intelligente (JSON vs PDF)** : Lorsqu'une pathologie est cherchée, l'app interroge l'API officielle ClinicalTrials V2. 
-  - Si le texte structuré (`eligibilityCriteria`) est disponible, il est envoyé directement à l'IA pour une extraction foudroyante (< 1 seconde).
-  - *Fallback (Plan B)* : Si l'utilisateur force l'extraction PDF, l'application scanne intelligemment les résultats de l'API v2 jusqu'à identifier des essais possédant réellement un fichier PDF attaché. Elle télécharge ensuite ces PDF originaux directement via le CDN public de ClinicalTrials.gov (ultra-rapide et robuste).
-    > **💡 Point d'Ingénierie Fort (Recherche Intelligente & Scraping CDN) :** Remplacement stratégique du scraping par navigateur (Playwright) par une interrogation directe et intelligente des endpoints CDN via l'API v2. L'algorithme filtre à la volée les essais sans documents pour garantir un téléchargement réussi. Résultat : temps d'extraction divisés par 10, zéro dépendance complexe, et fiabilité totale sur des serveurs Cloud (Render).
-- **Stockage Cloud (Supabase Storage)** : Dans le cas du "Plan B" (PDF téléchargé), le fichier est automatiquement sauvegardé dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
-- **Extraction RAG Hybride (BioBERT + Qwen)** : Le PDF ou le texte brut passe par notre pipeline IA. **BioBERT** fragmente le texte et trouve les paragraphes clés pertinents (Embedding vectoriel). Le LLM génératif **Qwen-7B** prend ensuite le relais pour lire ce contexte ultra-ciblé et formater la sortie en un fichier JSON structuré parfait.
-- **Tableau de Bord Médical** : Les données structurées (Maladie, Médicaments, Critères d'inclusion) sont exposées au médecin via une interface Pandas/Streamlit (`st.dataframe`).
+- **Branche A (Recherche Instantanée & Gratuite)** : L'application interroge l'API officielle ClinicalTrials V2 via des requêtes ciblées. Les résultats (Titre, Phase, Maladie) sont immédiatement affichés dans un tableau Streamlit. **Cette étape ne consomme aucune ressource IA.**
+- **Branche B (Extraction RAG Hybride via GPU)** : Uniquement lorsque l'utilisateur sélectionne une étude spécifique, le pipeline IA est déclenché sur un serveur distant (Lightning AI).
+  - **Le Retriever (BioBERT)** : Fragmente le texte de l'essai et isole uniquement les paragraphes pertinents par similarité vectorielle.
+  - **Le Generator (Qwen-7B Fine-Tuné)** : Notre LLM "In-House" (optimisé via QLoRA sur le dataset CHIA) lit ce contexte ciblé et extrait un fichier JSON structuré parfait des entités médicales.
+  - *(Voir le détail des interactions dans [SCHEMA_BIOBERT_QWEN.md](docs/SCHEMA_BIOBERT_QWEN.md))*
+- **Stockage Cloud (Supabase Storage)** : Les documents PDF bruts téléchargés en secours sont automatiquement sauvegardés dans un bucket public sur Supabase (`clinical_pdfs`) pour l'archivage.
 - **Base Vectorielle** : Supabase avec l'extension `pgvector` et un index HNSW.
 - **Monitoring** : `MLflow` pour le suivi des performances (latence, prompts, JSON de sortie).
 
@@ -61,31 +60,7 @@ npx localtunnel --port 5000 --subdomain mlflow-clinique-chris
 - L'URL de l'API est fixée sur : `https://protocole-clinique-api.loca.lt` (à insérer dans Streamlit).
 - Vos logs d'extractions en direct sont sur : `https://mlflow-clinique-chris.loca.lt` (cliquez sur "Click to Continue" pour y accéder).
 
-## 💡 FAQ & Pièges classiques (Spécial Soutenance / Démo)
 
-Si un membre du jury vous pose une question piège ou si vous avez un doute pendant la démo, voici les réponses :
-
-> **❓ "Pourquoi MLflow affiche une date *Last modified* d'hier alors que je viens de faire une extraction ?"**
-> L'interface de MLflow (page *Experiments*) affiche la date de **création du dossier**, pas la date de la dernière donnée insérée. C'est comme un classeur physique : on ne change pas l'étiquette quand on glisse une nouvelle feuille dedans.
-> 👉 **Solution** : Cliquez sur le nom bleu `Clinical_Trials_Extraction` pour entrer dans le dossier. Vos extractions d'aujourd'hui sont bien là !
-
-> **❓ "Je ne vois pas mes données dans MLflow, j'ai une erreur *Failed to load chart data* ou *Request Error* ?"**
-> 1. Assurez-vous d'avoir cliqué sur le bouton **"Model training"** en haut à gauche de MLflow (le mode "GenAI" par défaut cherche des données complexes que nous n'utilisons pas).
-> 2. Pour voir vos données (`disease`, `document`), cliquez sur le petit bouton **`+` (Show more columns)** à droite du tableau et cochez-les.
-
-> **❓ "Si l'onglet 1 n'utilise que BioBERT, pourquoi l'API charge-t-elle le LLM Qwen au démarrage ?"**
-> L'API doit être prête à servir les deux onglets simultanément. Si BioBERT est parfait pour l'extraction (Onglet 1), il est en revanche **incapable de formuler des phrases**. Le modèle Qwen est donc chargé en VRAM car il est le seul à pouvoir lire les résultats de BioBERT et générer une réponse en bon français pour le **Chatbot RAG (Onglet 2)**.
-
-> **❓ "Le chatbot RAG commence à répéter les mêmes mots en boucle ?"**
-> Les modèles de langage locaux (comme Qwen-7B) peuvent halluciner et boucler indéfiniment s'ils ne trouvent pas de réponse claire.
-> 👉 **Solution** : Nous avons configuré une pénalité (`repetition_penalty = 1.1`) dans les paramètres d'inférence de l'API (`vLLM`) pour lui interdire formellement de répéter les mêmes séquences de mots. L'assistant est désormais stable.
-
-> **❓ "Comment tester le téléchargement des PDF si tout passe rapidement par le JSON (Plan A) ?"**
-> Pour les besoins de la démonstration, nous avons ajouté une option **"Ignorer le texte natif et forcer le scraping PDF (Plan B)"** directement dans l'interface Streamlit. Cochez-la pour forcer le lancement du navigateur fantôme et l'upload dans Supabase !
-
-> **❓ "J'ai l'erreur `[Errno 98] Address already in use` quand je lance MLflow ou l'API ?"**
-> Cela signifie que vous avez fermé le terminal avec la croix au lieu de faire `Ctrl+C`, le processus tourne donc toujours de manière invisible.
-> 👉 **Solution** : Tapez `pkill -f "mlflow"` ou `pkill -f "uvicorn"` pour tuer les processus fantômes, puis relancez.
 
 ## 📂 Déploiement de l'Interface Web (Render / Docker)
 
