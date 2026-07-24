@@ -3,12 +3,12 @@ import glob
 import json
 import re
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import PeftModel
 from tqdm import tqdm
 
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
-ADAPTER_DIR = "models/qwen_0.5b_chia_finetuned"
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+ADAPTER_DIR = "Elkristobal59/qwen-7b-chia-ner"
 TEST_DIR = os.path.join("data", "test", "testset")
 PRED_DIR = os.path.join("data", "test_predictions")
 
@@ -42,17 +42,27 @@ def main():
     print("Loading tokenizer and base model...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     
-    base_model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
-        device_map="auto",
-        torch_dtype=torch.float16
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    
+    # We must load 7B in 4-bit quantization to fit in 12GB RTX 3060
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16
     )
     
-    if os.path.exists(ADAPTER_DIR):
+    base_model = AutoModelForCausalLM.from_pretrained(
+        MODEL_ID,
+        quantization_config=bnb_config if device == "cuda:0" else None,
+        device_map={"": device}
+    )
+    
+    try:
         print(f"Loading fine-tuned adapter from {ADAPTER_DIR}...")
         model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
-    else:
-        print(f"⚠️ Adapter not found at {ADAPTER_DIR}. Using base model.")
+    except Exception as e:
+        print(f"Adapter not found at {ADAPTER_DIR}. Using base model. Error: {e}")
         model = base_model
         
     model.eval()
@@ -110,7 +120,7 @@ def main():
                     f.write(f"T{t_id}\t{label} {start} {end}\t{ent_text}\n")
                     t_id += 1
 
-    print(f"\n✅ Evaluation complete. Predictions saved to {PRED_DIR}")
+    print(f"\nEvaluation complete. Predictions saved to {PRED_DIR}")
     print("👉 Next step: Run brateval to compare the ground truth (.ann in testset) vs predictions.")
 
 if __name__ == "__main__":

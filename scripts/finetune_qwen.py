@@ -35,22 +35,15 @@ def main():
     dataset = load_dataset("json", data_files=DATASET_PATH, split="train")
     
     # ---------------------------------------------------------
-    # 📉 ÉTAPE 1 : LA QUANTIZATION (4-bit)
+    # 📉 ÉTAPE 1 : LA QUANTIZATION (4-bit) (DÉSACTIVÉE POUR CE PETIT MODÈLE)
     # ---------------------------------------------------------
-    print("Configuring 4-bit quantization...")
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,                 # Active la compression 4-bit
-        bnb_4bit_use_double_quant=True,    # Double compression pour gagner encore plus de mémoire
-        bnb_4bit_quant_type="nf4",         # Format NormalFloat4 (optimisé pour les poids des LLMs)
-        bnb_4bit_compute_dtype=torch.float16 # Les calculs (maths) restent en 16-bits pour la précision
-    )
-    
-    print(f"Loading model {MODEL_ID}...")
+    print("Skipping 4-bit quantization (model is small enough for full FP16)...")
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    print(f"Device detected: {device}")
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
-        quantization_config=bnb_config,
-        device_map="auto",                 # Place automatiquement le modèle sur le GPU disponible
-        dtype=torch.float16
+        device_map={"": device},           # S'adapte automatiquement (CPU ou GPU)
+        torch_dtype=torch.float16 if device == "cuda:0" else torch.float32
     )
     model.config.use_cache = False         # Obligatoire de désactiver le cache pendant l'entraînement
     
@@ -91,7 +84,7 @@ def main():
         per_device_train_batch_size=1,     # 🔥 Batch size à 1 pour économiser la RAM vidéo
         gradient_accumulation_steps=8,     # On accumule 8 calculs avant de mettre à jour le modèle (Batch effectif = 8)
         gradient_checkpointing=True,       # 🔥 Supprime les données intermédiaires de la RAM pour ne pas exploser la mémoire
-        optim="paged_adamw_8bit",          # Optimiseur en 8-bits (divise sa taille mémoire par 4)
+        optim="adamw_torch",               # Optimiseur PyTorch natif (évite les bugs bitsandbytes sous Windows)
         save_steps=50,                     # Sauvegarde un checkpoint toutes les 50 étapes
         logging_steps=10,                  # Affiche l'erreur (Loss) toutes les 10 étapes
         learning_rate=2e-4,                # Vitesse d'apprentissage
@@ -99,7 +92,10 @@ def main():
         max_grad_norm=0.3,
         max_steps=200,                     # Nombre total d'étapes (ajustable selon le temps disponible)
         warmup_steps=10,                   # Chauffe doucement le modèle au début
-        lr_scheduler_type="constant"
+        lr_scheduler_type="constant",
+        dataloader_pin_memory=False,       # Fix Windows DataLoader freeze
+        dataloader_num_workers=0,          # Fix Windows DataLoader freeze
+        report_to="none"                   # Disable wandb to prevent freezing in background!
     )
     
     # Lancement du dresseur
