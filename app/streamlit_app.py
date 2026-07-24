@@ -113,12 +113,14 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("👨‍💻 L'Équipe")
 st.sidebar.markdown("Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau")
 st.sidebar.markdown("---")
-st.sidebar.header("Configuration API")
-st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (GPU)")
-st.sidebar.metric(label="Moteur Inférence", value="vLLM + Qwen")
+st.sidebar.header("Architecture & Stack")
+st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (L4 GPU)")
+st.sidebar.metric(label="Moteurs (NER & RAG)", value="Qwen 2.5 7B + BioBERT")
+st.sidebar.metric(label="Stockage Durable", value="Supabase (Postgres & S3)")
+st.sidebar.metric(label="MLOps & Tracking", value="MLflow")
 api_url = st.sidebar.text_input(
-    "URL de l'API Lightning AI:",
-    value=os.getenv("LIGHTNING_AI_API_URL", "http://127.0.0.1:8000"),
+    "URL du FastAPI Orchestrateur (Lightning AI):",
+    value=os.getenv("LIGHTNING_AI_API_URL", "https://protocole-clinique-api.loca.lt"),
     key="api_url_input")
 if st.session_state.api_url_input:
     os.environ["LIGHTNING_AI_API_URL"] = st.session_state.api_url_input
