@@ -18,6 +18,7 @@ qui gère la VRAM avec la technique "PagedAttention", rendant la génération de
 
 import os
 import io
+import json
 import fitz  # PyMuPDF : Pour lire les PDF directement en mémoire sans les sauvegarder
 import psycopg2
 import torch
@@ -77,9 +78,9 @@ async def startup_event():
     # Elle évite la fragmentation de la VRAM (PagedAttention).
     if torch.cuda.is_available():
         try:
-            print("GPU détecté -> Activation de vLLM...")
-            # On réserve 85% de la VRAM au LLM, et on limite la fenêtre de contexte (tokens) pour éviter les crashs OOM.
-            qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.85, max_model_len=4096)
+            print("GPU détecté -> Activation de vLLM (avec support LoRA)...")
+            # On réserve 85% de la VRAM au LLM, et on active le support LoRA
+            qwen_model = LLM(model=QWEN_MODEL, gpu_memory_utilization=0.85, max_model_len=4096, enable_lora=True)
             is_vllm = True
         except Exception as e:
             print(f"Erreur vLLM, fallback transformers: {e}")
@@ -87,11 +88,17 @@ async def startup_event():
             
     # 🐌 FALLBACK CLASSIC TRANSFORMERS (Si pas de GPU ou erreur vLLM)
     if not is_vllm:
-        print("Mode CPU ou Fallback -> Activation de Transformers...")
-        qwen_model = AutoModelForCausalLM.from_pretrained(
+        print("Mode CPU ou Fallback -> Activation de Transformers (avec PeftModel)...")
+        from peft import PeftModel
+        base_model = AutoModelForCausalLM.from_pretrained(
             QWEN_MODEL, 
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
         ).to(device)
+        try:
+            qwen_model = PeftModel.from_pretrained(base_model, "Elkristobal59/qwen-7b-chia-ner")
+        except:
+            print("Adapter not found on HF, using base model")
+            qwen_model = base_model
     
     print("Connexion Supabase (Base Vectorielle)...")
     conn = psycopg2.connect(SUPABASE_DB_URL)
@@ -174,41 +181,30 @@ def process_extracted_text(text: str, filename: str, disease: str, start_time: f
             
         context = "\n\n".join([f"Extrait:\n{r[0]}" for r in results])
         
-        # --- 4. EXTRACTION JSON (REDUCE / GENERATOR) ---
-        prompt = f"""Analyze the following clinical trial extracts and extract structured information regarding the disease: {disease}.
+        # --- 4. EXTRACTION JSON VIA LoRA (NER) ---
+        prompt = f"""Extract all relevant clinical entities from the following text and format them as JSON. The allowed entity types are: Condition, Drug, Procedure, Measurement, Value, Temporal, Observation, Person, Device.
 
-REQUIREMENTS:
-1. "condition": The main disease or condition being studied (string).
-2. "medications": A list of all drugs, treatments, or therapies mentioned (array of strings). If none, return an empty array [].
-3. "inclusion_criteria": A summary of the patient inclusion and exclusion criteria (string).
-
-CONTEXT EXTRACTS:
-{context}
-
-OUTPUT FORMAT:
-Return ONLY a valid JSON object matching the exact following schema, without any markdown formatting or explanations:
-{{
-  "condition": "string",
-  "medications": ["string"],
-  "inclusion_criteria": "string"
-}}
-"""
+Text: {context}"""
         messages = [
-            {"role": "system", "content": "You are an expert clinical data extractor. Your task is to extract structured medical information from clinical trial texts and output ONLY valid JSON."},
+            {"role": "system", "content": "You are a medical AI assistant specialized in clinical trial named entity recognition (NER). You extract key entities precisely and format them in JSON."},
             {"role": "user", "content": prompt}
         ]
         
         text_prompt = qwen_tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
-        print(f"Génération Qwen pour {disease}...")
+        print(f"Génération Qwen (via LoRA NER) pour {disease}...")
         
         if is_vllm:
-            # 🚀 Inférence hyper rapide via vLLM
+            from vllm.lora.request import LoRARequest
             sampling_params = SamplingParams(temperature=0.1, max_tokens=2048, repetition_penalty=1.1)
-            outputs = qwen_model.generate([text_prompt], sampling_params)
+            try:
+                lora_req = LoRARequest("chia_ner", 1, "Elkristobal59/qwen-7b-chia-ner")
+                outputs = qwen_model.generate([text_prompt], sampling_params, lora_request=lora_req)
+            except Exception as e:
+                print(f"Erreur chargement dynamique LoRA: {e}, fallback classique")
+                outputs = qwen_model.generate([text_prompt], sampling_params)
             response_json = outputs[0].outputs[0].text
         else:
-            # 🐌 Inférence standard (HuggingFace Transformers)
             model_inputs = qwen_tokenizer([text_prompt], return_tensors="pt").to(device)
             with torch.no_grad():
                 generated_ids = qwen_model.generate(model_inputs.input_ids, max_new_tokens=2048, temperature=0.1, repetition_penalty=1.1)
@@ -216,21 +212,45 @@ Return ONLY a valid JSON object matching the exact following schema, without any
                 output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
             ]
             response_json = qwen_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        
+            
         latency = time.time() - start_time
         
-        # --- 5. LOGGING MLOPS (L'Oeil de Sauron) ---
-        # MLflow va enregistrer la vitesse de réponse (latency), le prompt utilisé, et le JSON généré.
-        # Cela permet à l'équipe Data Science de surveiller les "hallucinations" ou les baisses de perf.
+        # --- 5. POST-PROCESSING (NER List -> API Dict) ---
+        # Le modèle NER génère une liste d'entités, mais l'API s'attend à un dictionnaire strict.
+        final_dict = {
+            "condition": disease,
+            "medications": [],
+            "inclusion_criteria": "Veuillez consulter le texte source pour les critères." # Le modèle NER ne gère pas ce champ global
+        }
+        
+        try:
+            clean_resp = response_json.strip()
+            if clean_resp.startswith("```json"):
+                clean_resp = clean_resp[7:]
+            if clean_resp.endswith("```"):
+                clean_resp = clean_resp[:-3]
+                
+            entities = json.loads(clean_resp)
+            for ent in entities:
+                if ent.get("label") == "Condition" and not final_dict["condition"]:
+                    final_dict["condition"] = ent.get("entity")
+                elif ent.get("label") == "Drug":
+                    final_dict["medications"].append(ent.get("entity"))
+        except Exception as e:
+            print(f"Erreur de parsing JSON NER: {e}")
+            
+        # Conversion du dictionnaire final en JSON string pour la réponse HTTP
+        final_json_str = json.dumps(final_dict, ensure_ascii=False)
+        
         with mlflow.start_run():
             mlflow.log_param("disease", disease)
             mlflow.log_param("document", filename)
-            mlflow.log_param("model", QWEN_MODEL)
+            mlflow.log_param("model", "Elkristobal59/qwen-7b-chia-ner")
             mlflow.log_metric("latency_sec", latency)
             mlflow.log_text(prompt, "prompt.txt")
-            mlflow.log_text(response_json, "response.json")
+            mlflow.log_text(response_json, "ner_response_raw.json")
             
-        return {"status": "success", "disease": disease, "document": filename, "extraction": response_json}
+        return {"status": "success", "disease": disease, "document": filename, "extraction": final_json_str}
 
     except HTTPException:
         raise  # Laisser passer les erreurs HTTP propres (404, etc.)

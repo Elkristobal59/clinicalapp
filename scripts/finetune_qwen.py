@@ -95,7 +95,7 @@ def main():
         save_steps=50,                     # Sauvegarde un checkpoint toutes les 50 étapes
         logging_steps=10,                  # Affiche l'erreur (Loss) toutes les 10 étapes
         learning_rate=2e-4,                # Vitesse d'apprentissage
-        bf16=True,                         # Format Bfloat16 (ultra rapide sur les cartes NVIDIA récentes)
+        fp16=True,                         # Format FP16 (supporté par plus de GPUs que bf16)
         max_grad_norm=0.3,
         max_steps=200,                     # Nombre total d'étapes (ajustable selon le temps disponible)
         warmup_steps=10,                   # Chauffe doucement le modèle au début
