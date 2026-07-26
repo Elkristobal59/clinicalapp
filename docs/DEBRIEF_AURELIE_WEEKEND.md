@@ -32,8 +32,8 @@ Ce week-end a été consacré au **polish final, à l'industrialisation techniqu
 ---
 
 ## 3. 🧠 Moteur IA : RAG BioBERT x Fine-Tuning Qwen (Zéro Data Leakage)
-* **Fine-Tuning QLoRA optimisé (Qwen2.5-0.5B-Instruct) :**
-  * Spécialisation du modèle sur l'extraction stricte d'entités nommées (NER) médicales sous format JSON standardisé, permettant de faire tourner le modèle localement (Edge AI) avec une empreinte VRAM minimale (~1 Go).
+* **Fine-Tuning QLoRA optimisé (Qwen2.5-7B-Instruct) :**
+  * Spécialisation du modèle 7B sur l'extraction stricte d'entités nommées (NER) médicales sous format JSON standardisé, avec quantification QLoRA (4-bit) pour une exécution ultra-rapide et performante sur GPU (75 tokens/sec via vLLM).
 * **Rigueur Scientifique & Défense face au Jury (Anti Data Leakage) :**
   * Le corpus standard CHIA (1000 études) a été scindé **strictement par identifiant d'étude (`NCT`)** : 800 études en entraînement (Train Set) et 200 en validation (Test Set). Le modèle n'a jamais appris sur des phrases du set d'évaluation.
   * **Holdout Set Démo Day :** Sélection de **5 études cliniques inédites** (prouvées mathématiquement exclues du dataset CHIA) pour la démonstration en direct devant le jury, démontrant la capacité de généralisation parfaite de notre IA sur les ~500 000 études de la base mondiale.

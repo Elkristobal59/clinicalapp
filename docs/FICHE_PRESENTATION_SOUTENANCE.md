@@ -85,7 +85,7 @@ L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites
 ---
 
 ## 5. 🚀 Évolution Réalisée : Le Fine-Tuning QLoRA & La Défense IA (Data Leakage)
-**"Pour aller plus loin, nous avons réellement implémenté un Fine-Tuning de Qwen (0.5B) pour le spécialiser sur l'extraction d'entités (NER). Voici comment nous garantissons la rigueur scientifique de cette IA :"**
+**"Pour aller plus loin, nous avons réellement implémenté un Fine-Tuning de Qwen (7B) pour le spécialiser sur l'extraction d'entités (NER). Voici comment nous garantissons la rigueur scientifique de cette IA :"**
 
 1.  **L'Entraînement Sans Fuite (Data Leakage) :** La base de données CHIA (1000 études annotées par des chercheurs) a été scindée strictement par identifiant d'étude (NCT). 800 études ont servi de jeu d'entraînement (Train Set) pour que le modèle apprenne "les règles métier", et 200 études ont été verrouillées (Test Set) pour le Benchmark officiel.
 2.  **Le Holdout Set du Demo Day :** Pour la démo en direct, notre équipe a téléchargé via l'API et annoté manuellement 5 études **inédites**. Nous avons prouvé mathématiquement via un script qu'elles n'appartiennent pas aux 1000 études CHIA. Le modèle ne les a donc jamais vues.
@@ -96,9 +96,9 @@ L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites
     *   **`entropy` (L'Incertitude) :** Mesure de l'hésitation du modèle. Elle a fortement baissé, prouvant que le modèle a pris confiance.
     *   **`grad_norm` (Norme du gradient) :** La force des corrections appliquées. Maintenue stable (autour de 0.5), elle prouve un apprentissage fluide sans bug mathématique.
     *   **`learning_rate` :** Maintenu constant à 0.0002. L'idéal pour un Quick LoRA (Fine-Tuning rapide) sans faire d'Oubli Catastrophique.
-5.  **Le Choix Stratégique du Modèle (Pourquoi Qwen2.5-0.5B-Instruct ?) :**
+5.  **Le Choix Stratégique du Modèle (Pourquoi Qwen2.5-7B-Instruct en QLoRA ?) :**
     *   **L'Architecture 2.5 :** Sortie très récemment (septembre 2024), elle possède d'excellentes capacités natives pour structurer ses sorties en JSON strict (crucial pour notre pipeline).
-    *   **Le Format "Small Language Model" (0.5B) :** Ne pesant qu'1 Go, il peut tourner localement sur un ordinateur portable standard de 6 Go de VRAM (Edge AI) pour le fine-tuning. C'est un point décisif pour les données de santé : aucune donnée patient ne fuite sur des serveurs Cloud.
+    *   **Le Format "Small Language Model" (7B) :** Grâce à la quantification QLoRA en 4-bit, le modèle 7B est optimisé pour tourner sur GPU dédié ou serveur d'inférence (vLLM) avec une efficacité mémoire maximale et une latence de quelques secondes par essai clinique.
     *   **Le Tag "Instruct" :** Il sait déjà suivre une conversation et des consignes. Lors du fine-tuning, nous n'avons pas eu besoin de lui apprendre à parler, mais uniquement à extraire la sémantique médicale (gain de temps et de données).
     *   **Multilingue :** Très performant en français et en anglais, idéal pour des textes médicaux qui mélangent souvent les deux langues.
 
@@ -109,5 +109,5 @@ L'architecture est modulaire, extrêmement véloce, robuste face aux cas limites
 1.  **Traitement Multi-Modal (CNN / ViT) :** Analyser directement les images, graphiques et scanners encapsulés dans les PDF grâce à des réseaux de neurones convolutifs (CNN) ou des Vision Transformers.
 2.  **Scalabilité Cloud (Kubernetes) :** Architecture distribuée en cluster pour l'ingestion massive d'essais cliniques mondiaux.
 3.  **Auto-suppression Supabase (FinOps/RGPD) :** Mise en place d'un système de TTL (Time-To-Live) ou d'un CRON pour purger automatiquement les PDFs temporaires et optimiser les coûts de stockage.
-4.  **Modèles SLM :** Fine-tuning d'un très petit modèle (Small Language Model, type Qwen-0.5B) ultra-spécialisé pour remplacer définitivement notre modèle 7B d'inférence, réduisant drastiquement les coûts (Edge AI sur petits serveurs locaux).
+4.  **Modèles SLM :** Fine-tuning d'un très petit modèle (Small Language Model, type Qwen-7B) ultra-spécialisé pour remplacer définitivement notre modèle 7B d'inférence, réduisant drastiquement les coûts (Edge AI sur petits serveurs locaux).
 5.  **Détection et Lutte contre le Drift (Human-in-the-Loop) :** Mettre en place un système de signalement des erreurs par les médecins dans l'interface, afin de détecter silencieusement le "Drift" (nouveau vocabulaire médical, nouvelles maladies) et déclencher automatiquement un ré-entraînement continu (QLoRA) tous les 3 mois.

@@ -18,7 +18,7 @@ Cette section documente les principales difficultés techniques rencontrées lor
 **La résolution :** Refactorisation complète du script d'entraînement pour utiliser les arguments fondamentaux (`TrainingArguments` standards) et s'adapter aux nouveaux standards stricts imposés par les développeurs de HuggingFace.
 
 ## 3. Conflits de précision mixte (PyTorch AMP & Qwen BFloat16)
-**Le problème :** Le modèle de base `Qwen2.5-0.5B-Instruct` a été entraîné originellement en format `bfloat16`. Pour économiser la mémoire VRAM, nous avions paramétré l'entraînement en `float16` (`fp16=True`).
+**Le problème :** Le modèle de base `Qwen2.5-7B-Instruct` a été entraîné originellement en format `bfloat16`. Pour économiser la mémoire VRAM, nous avions paramétré l'entraînement en `float16` (`fp16=True`).
 **La conséquence :** Lors de la première étape de rétropropagation (Gradient Descent), le `GradScaler` de PyTorch a détecté un conflit de types de tenseurs et a généré un crash brutal : `NotImplementedError: "_amp_foreach_non_finite_check_and_unscale_cuda" not implemented for 'BFloat16'`.
 **La résolution :** Passage intégral du pipeline d'entraînement en `bfloat16` (`bf16=True`), ce qui permet d'utiliser le format natif du modèle Qwen et de désactiver le correcteur de gradient problématique de PyTorch.
 
