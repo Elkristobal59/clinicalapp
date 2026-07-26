@@ -97,17 +97,18 @@ for k, v in {"search_done": False, "analysis_done": False,
 # --------------------------------------------------------------------------- #
 # En-tête + sidebar
 # --------------------------------------------------------------------------- #
-banner_path = os.path.join(os.path.dirname(__file__), "assets", "dashboard_medical.jpg")
+banner_path = os.path.join(os.path.dirname(__file__), "assets", "cliner_logo.png")
 if os.path.exists(banner_path):
-    _, col_img, _ = st.columns([1, 2, 1])
+    _, col_img, _ = st.columns([1, 1.5, 1])
     with col_img:
         st.image(banner_path, use_container_width=True)
 
-st.title("🫀 Moteur d'Extraction & Chatbot Clinique")
+st.title("🫀 CliNER — Moteur d'Extraction & Chatbot Clinique")
 st.markdown("### Architecture de bout en bout (ETL Hybride & vLLM)")
 st.markdown("---")
 
-st.sidebar.title("Clinical Protocols Standardization")
+st.sidebar.title("🫀 CliNER")
+st.sidebar.markdown("*AI-Powered Medical Intelligence & End-to-End Clinical Named Entity Recognition engine.*")
 st.sidebar.markdown("**Projet Jedha - Bootcamp AIFS01**")
 st.sidebar.markdown("---")
 st.sidebar.subheader("👨‍💻 L'Équipe")
