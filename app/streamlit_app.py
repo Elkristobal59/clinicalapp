@@ -358,23 +358,67 @@ def run_gpu_extraction(tasks, label, api_url, output_dir):
     return results
 
 
+def _study_metadata_by_nct():
+    """Construit un dict NCT_ID -> métadonnées depuis found_studies (session)."""
+    lookup = {}
+    for s in st.session_state.get("found_studies", []):
+        ps = s.get("protocolSection", {})
+        nct = _safe_get(s, "protocolSection", "identificationModule", "nctId")
+        if not nct:
+            continue
+        elig = ps.get("eligibilityModule", {})
+        design = ps.get("designModule", {})
+        design_info = design.get("designInfo", {})
+        conds = _safe_get(s, "protocolSection", "conditionsModule", "conditions")
+        phases = design.get("phases")
+        inters = _safe_get(s, "protocolSection", "armsInterventionsModule", "interventions") or []
+        int_types = " | ".join(i.get("type") for i in inters if i.get("type")) or "N/A"
+        lookup[nct] = {
+            "NCT_ID": nct,
+            "Condition (API)": ", ".join(conds) if conds else "N/A",
+            "MinimumAge": elig.get("minimumAge", "N/A"),
+            "MaximumAge": elig.get("maximumAge", "N/A"),
+            "Sex": elig.get("sex", "N/A"),
+            "HealthyVolunteers": "Yes" if elig.get("healthyVolunteers") else "No",
+            "InterventionType": int_types,
+            "Phase": ", ".join(phases) if phases else "N/A",
+            "StudyType": design.get("studyType", "N/A"),
+            "DesignPrimaryPurpose": design_info.get("primaryPurpose", "N/A"),
+        }
+    return lookup
+
+
 def results_to_df(results):
-    """Aplatit les résultats d'extraction en tableau."""
+    """Fusionne les métadonnées ClinicalTrials (onglet 2) avec les extractions
+    NER du GPU (onglet 3) pour un tableau de bord clinique complet."""
+    meta = _study_metadata_by_nct()
     rows = []
     for res in results:
         ext = res.get("extraction", {})
+        nct_id = res.get("document", "N/A")
         meds = ext.get("medications", []) if isinstance(ext, dict) else []
         meds = ", ".join(str(m.get("name", m.get("description", ""))) if isinstance(m, dict)
                          else str(m) for m in meds)
         crit = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
         crit = ", ".join(str(c.get("description", c.get("category", ""))) if isinstance(c, dict)
                          else str(c) for c in crit)
+
+        # Métadonnées officielles ClinicalTrials.gov
+        m = meta.get(nct_id, {})
         rows.append({
-            "Document": res.get("document", "N/A"),
-            "Pathologie": res.get("disease", "N/A"),
-            "Condition Principale": ext.get("condition", "") if isinstance(ext, dict) else "",
+            "NCT_ID": nct_id,
+            "Condition (API)": m.get("Condition (API)", "N/A"),
+            "Condition (NER)": ext.get("condition", "") if isinstance(ext, dict) else "",
             "Médicaments (Drug)": meds,
-            "Critères (Measurement)": crit,
+            "Critères d'éligibilité": crit,
+            "MinimumAge": m.get("MinimumAge", "N/A"),
+            "MaximumAge": m.get("MaximumAge", "N/A"),
+            "Sex": m.get("Sex", "N/A"),
+            "HealthyVolunteers": m.get("HealthyVolunteers", "N/A"),
+            "InterventionType": m.get("InterventionType", "N/A"),
+            "Phase": m.get("Phase", "N/A"),
+            "StudyType": m.get("StudyType", "N/A"),
+            "DesignPrimaryPurpose": m.get("DesignPrimaryPurpose", "N/A"),
         })
     return pd.DataFrame(rows)
 
@@ -542,9 +586,9 @@ with tab3:
         # --- Petit graphique : nb d'entités par type ---
         counts = {"Condition": 0, "Médicaments": 0, "Critères": 0}
         for _, row in df.iterrows():
-            counts["Condition"] += 1 if row["Condition Principale"] else 0
+            counts["Condition"] += 1 if row["Condition (NER)"] else 0
             counts["Médicaments"] += len([m for m in str(row["Médicaments (Drug)"]).split(",") if m.strip()])
-            counts["Critères"] += len([c for c in str(row["Critères (Measurement)"]).split(",") if c.strip()])
+            counts["Critères"] += len([c for c in str(row["Critères d'éligibilité"]).split(",") if c.strip()])
         st.subheader("Répartition des entités extraites")
         st.bar_chart(pd.DataFrame({"Nombre": counts}))
 
