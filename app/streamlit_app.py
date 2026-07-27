@@ -592,6 +592,9 @@ with tab3:
         st.subheader("Répartition des entités extraites")
         st.bar_chart(pd.DataFrame({"Nombre": counts}))
 
+        st.markdown("---")
+        st.info("💬 **Envie d'aller plus loin ?** L'extraction NER a généré les vecteurs BioBERT dans la base de données ! Vous pouvez maintenant accéder à l'onglet **« 💬 Chatbot RAG »** pour poser vos questions complexes sur ces essais en langage naturel.")
+
 
 # ============================ ONGLET 4 : RAG =============================== #
 with tab4:
