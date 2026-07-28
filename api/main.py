@@ -147,6 +147,11 @@ def process_extracted_text(text: str, filename: str, disease: str, start_time: f
         conn.rollback()
         cur = conn.cursor()
         
+        # --- NOUVEAUTÉ (MLOps) : Nettoyage natif ---
+        # On supprime les anciens vecteurs de ce document précis avant d'insérer les nouveaux.
+        # Cela empêche l'accumulation de déchets si on change la méthode de découpage (Chunking).
+        cur.execute("DELETE FROM clinical_trials_data_biobert WHERE doc_id = %s", (filename,))
+        
         # --- 2. INGESTION VECTORIELLE ---
         for idx, chunk_text in enumerate(chunks):
             embedding = get_biobert_embedding(chunk_text)
@@ -371,11 +376,17 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
         if not results:
             return {"answer": "Je n'ai pas trouvé d'informations pertinentes dans la base."}
             
-        context = "\n\n".join([f"Extrait:\n{r[0]}" for r in results])
+        # 3. NOUVEAU FORMATAGE PLUS CLAIR POUR L'IA (Séparation des documents) :
+        context_parts = []
+        for i, r in enumerate(results, 1):
+            context_parts.append(f"--- DOCUMENT / ESSAI CLINIQUE N°{i} ---\n{r[0]}\n-----------------------------------")
         
-        # 3. Construction du Prompt : On donne le contexte (les extraits) ET la question (User) au LLM
-        prompt = f"""Réponds à la question de l'utilisateur en te basant UNIQUEMENT sur les extraits de contexte médical ci-dessous. 
-Si la réponse ne se trouve pas dans le contexte, indique clairement que tu ne possèdes pas l'information. Ne donne jamais de conseils médicaux.
+        context = "\n\n".join(context_parts)
+        
+        # 4. Construction du Prompt : On donne le contexte (les extraits) ET la question (User) au LLM
+        prompt = f"""Tu es un assistant médical expert. Voici {len(results)} essais cliniques distincts extraits de notre base de données.
+Réponds à la question de l'utilisateur en te basant UNIQUEMENT sur ces {len(results)} documents. 
+Si l'information n'y figure pas, dis-le clairement. Tu dois répondre en Français.
 
 CONTEXTE MÉDICAL:
 {context}
