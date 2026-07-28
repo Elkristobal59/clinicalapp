@@ -358,14 +358,14 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
         if doc_id:
             # Recherche ciblée sur un essai clinique précis
             cur.execute("""
-                SELECT raw_text FROM clinical_trials_data_biobert
+                SELECT doc_id, raw_text FROM clinical_trials_data_biobert
                 WHERE doc_id = %s
                 ORDER BY embedding <=> %s::vector LIMIT 5;
             """, (doc_id, query_emb))
         else:
             # Recherche Globale (sur toute la base documentaire)
             cur.execute("""
-                SELECT raw_text FROM clinical_trials_data_biobert
+                SELECT doc_id, raw_text FROM clinical_trials_data_biobert
                 ORDER BY embedding <=> %s::vector LIMIT 5;
             """, (query_emb,))
             
@@ -379,7 +379,9 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
         # 3. NOUVEAU FORMATAGE PLUS CLAIR POUR L'IA (Séparation des documents) :
         context_parts = []
         for i, r in enumerate(results, 1):
-            context_parts.append(f"--- DOCUMENT / ESSAI CLINIQUE N°{i} ---\n{r[0]}\n-----------------------------------")
+            nom_document = r[0]
+            texte_extrait = r[1]
+            context_parts.append(f"--- DOCUMENT / ESSAI CLINIQUE : {nom_document} (Extrait N°{i}) ---\n{texte_extrait}\n-----------------------------------")
         
         context = "\n\n".join(context_parts)
         
