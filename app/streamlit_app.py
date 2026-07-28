@@ -11,6 +11,13 @@ load_dotenv()
 import streamlit as st
 import pandas as pd
 
+# Composant de persistance navigateur (localStorage) — optionnel : si absent,
+# l'app tourne normalement, juste sans survie au refresh.
+try:
+    from streamlit_local_storage import LocalStorage
+except ImportError:
+    LocalStorage = None
+
 # Ajouter le dossier parent au PATH pour les imports (scripts/…)
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -93,6 +100,31 @@ for k, v in {"search_done": False, "analysis_done": False,
              "latest_results": [], "extracted_docs": [],
              "chat_history": [], "demo_cache": {}, "selected_ncts": []}.items():
     st.session_state.setdefault(k, v)
+
+# --------------------------------------------------------------------------- #
+# Persistance navigateur (localStorage) — option 1 validée par l'équipe.
+# Survit au refresh (F5), rien n'est stocké côté serveur : tout reste dans le
+# navigateur du médecin (Privacy by Design). Restaure table, sélection,
+# résultats, graph et chat. Le stockage DURABLE (JSON, chunks, vecteurs) reste
+# côté Supabase Postgres — ce sont deux couches distinctes.
+# --------------------------------------------------------------------------- #
+PERSIST_KEYS = ["search_done", "analysis_done", "found_studies", "force_pdf",
+                "latest_query", "latest_results", "extracted_docs", "chat_history",
+                "selected_ncts"]
+_LS_KEY = "cliner_state_v1"
+_ls = LocalStorage() if LocalStorage is not None else None
+
+# Réhydratation : dès que le composant a chargé la valeur, on la réinjecte une
+# seule fois (le flag _hydrated évite d'écraser les modifs faites en session).
+if _ls is not None:
+    _raw = _ls.getItem(_LS_KEY)
+    if _raw and not st.session_state.get("_hydrated"):
+        try:
+            for _k, _v in json.loads(_raw).items():
+                st.session_state[_k] = _v
+        except Exception:
+            pass
+        st.session_state["_hydrated"] = True
 
 # --------------------------------------------------------------------------- #
 # En-tête + sidebar
@@ -627,3 +659,17 @@ with tab4:
                         ph.error(f"Erreur API ({r.status_code})")
                 except Exception as e:
                     ph.error(f"Impossible de joindre l'API : {e}")
+
+
+# --------------------------------------------------------------------------- #
+# Sauvegarde dans le localStorage — uniquement si l'état a changé (évite les
+# boucles de rerun). Appelé en fin d'exécution, après le rendu des onglets.
+# --------------------------------------------------------------------------- #
+if _ls is not None:
+    try:
+        _payload = json.dumps({k: st.session_state.get(k) for k in PERSIST_KEYS}, default=str)
+        if _payload != st.session_state.get("_last_saved"):
+            _ls.setItem(_LS_KEY, _payload, key="_ls_save")
+            st.session_state["_last_saved"] = _payload
+    except Exception:
+        pass
