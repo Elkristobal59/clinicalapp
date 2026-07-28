@@ -648,8 +648,12 @@ with tab4:
                 ph.markdown("🧠 Recherche vectorielle + génération...")
                 try:
                     sel = None if doc_filter == "Toute la base" else doc_filter
+                    # En mode "Toute la base", on passe la liste des NCT de la session
+                    # pour éviter la contamination cross-session (fix bug RAG scope)
+                    session_doc_ids = ",".join(st.session_state.extracted_docs) if not sel else None
                     r = requests.post(f"{api_url}/chat_rag",
-                                      data={"question": prompt, "doc_id": sel},
+                                      data={"question": prompt, "doc_id": sel,
+                                            "doc_ids": session_doc_ids},
                                       headers={"Bypass-Tunnel-Reminder": "true"})
                     if r.status_code == 200:
                         ans = r.json().get("answer", "Erreur de génération.")
