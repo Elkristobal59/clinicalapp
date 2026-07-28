@@ -340,10 +340,12 @@ async def process_pdf(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat_rag")
-async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
+async def chat_rag(question: str = Form(...), doc_id: str = Form(None), doc_ids: str = Form(None)):
     """
     Route API (Point d'accès) #3 : Le Chatbot Conversationnel RAG (Retrieval-Augmented Generation).
     Permet à l'utilisateur de poser une question libre en langage naturel à l'IA.
+    - doc_id   : recherche ciblée sur UN seul essai (mode "Filtrer par essai")
+    - doc_ids  : liste de NCT séparés par des virgules (mode "Toute la base" scopé à la session)
     """
     cur = None
     start_time = time.time()
@@ -354,19 +356,29 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None)):
         conn.rollback()
         cur = conn.cursor()
         
-        # 2. On interroge Supabase (Recherche des 5 paragraphes les plus pertinents)
+        # 2. On interroge Supabase (Recherche des paragraphes les plus pertinents)
         if doc_id:
-            # Recherche ciblée sur un essai clinique précis
+            # MODE "Filtrer par essai" : recherche ciblée sur UN seul essai clinique précis
             cur.execute("""
                 SELECT doc_id, raw_text FROM clinical_trials_data_biobert
                 WHERE doc_id = %s
-                ORDER BY embedding <=> %s::vector LIMIT 5;
+                ORDER BY embedding <=> %s::vector LIMIT 15;
             """, (doc_id, query_emb))
-        else:
-            # Recherche Globale (sur toute la base documentaire)
+        elif doc_ids:
+            # MODE "Toute la base" scopé : on recherche UNIQUEMENT dans les docs de la session courante
+            # doc_ids est une string de NCT séparés par des virgules (ex: "NCT001,NCT002")
+            session_doc_ids = [d.strip() for d in doc_ids.split(",") if d.strip()]
             cur.execute("""
                 SELECT doc_id, raw_text FROM clinical_trials_data_biobert
-                ORDER BY embedding <=> %s::vector LIMIT 5;
+                WHERE doc_id = ANY(%s)
+                ORDER BY embedding <=> %s::vector LIMIT 15;
+            """, (session_doc_ids, query_emb))
+        else:
+            # FALLBACK : Recherche globale non scopée (à éviter — risque de contamination cross-session)
+            # On laisse ce cas pour compatibilité mais le front DOIT toujours passer doc_ids
+            cur.execute("""
+                SELECT doc_id, raw_text FROM clinical_trials_data_biobert
+                ORDER BY embedding <=> %s::vector LIMIT 15;
             """, (query_emb,))
             
         results = cur.fetchall()
@@ -427,6 +439,7 @@ RÉPONSE:"""
         with mlflow.start_run():
             mlflow.log_param("task", "chat_rag")
             mlflow.log_param("doc_id", doc_id)
+            mlflow.log_param("doc_ids", doc_ids)
             mlflow.log_param("question", question)
             mlflow.log_metric("latency_sec", latency)
             mlflow.log_text(prompt, "rag_prompt.txt")
