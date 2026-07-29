@@ -26,7 +26,214 @@ try:
 except ImportError:
     download_pdf_for_nctid = None
 
-st.set_page_config(page_title="Essais Cliniques IA", page_icon="🫀", layout="wide")
+# Favicon de l'onglet : emblème seul (croix + cœur) = cliner_logo2.png,
+# sinon le logo complet (avec texte), sinon l'emoji.
+_fav = os.path.join(os.path.dirname(__file__), "assets", "cliner_logo2.png")
+_logo_ico = os.path.join(os.path.dirname(__file__), "assets", "cliner_logo.png")
+_page_icon = _fav if os.path.exists(_fav) else (_logo_ico if os.path.exists(_logo_ico) else "🫀")
+st.set_page_config(page_title="CliNER — Clinical NER", page_icon=_page_icon, layout="wide")
+
+# --------------------------------------------------------------------------- #
+# Thème visuel CliNER — dark néon (cyan/teal + bleu nuit), style logo.
+# config.toml gère les couleurs de base ; ce CSS ajoute la touche néon
+# (police Orbitron, glow des titres, boutons, onglets).
+# --------------------------------------------------------------------------- #
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600&display=swap');
+
+.stApp {
+  background: radial-gradient(1200px 600px at 50% -10%, #0e2a3a 0%, #0A1420 55%);
+}
+
+/* Bannière collée en haut (moins d'espace vide au-dessus) */
+.block-container { padding-top: 1.5rem; }
+
+/* Bannière CliNER — wordmark néon (texte = net à toute taille) */
+.cliner-hero {
+  text-align: center;
+  padding: 22px 0 16px;
+  margin: 0 0 8px;
+  background: radial-gradient(700px 240px at 50% 0%, rgba(34,211,238,.10), transparent 70%);
+  border-bottom: 1px solid #16324a;
+}
+.cliner-word {
+  font-family: 'Orbitron', sans-serif; font-weight: 800;
+  font-size: clamp(44px, 7vw, 96px); line-height: 1; letter-spacing: 2px;
+}
+.cliner-word .cli {
+  background: linear-gradient(180deg,#8fe3ff,#22D3EE 55%,#0ea5e9);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: drop-shadow(0 0 18px rgba(34,211,238,.55));
+}
+.cliner-word .ner {
+  background: linear-gradient(180deg,#9af5b8,#22c55e 55%,#16a34a);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  filter: drop-shadow(0 0 18px rgba(34,197,94,.5));
+}
+.cliner-tag {
+  font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  letter-spacing: 6px; font-size: clamp(11px, 1.4vw, 16px);
+  color: #9fd0da; margin-top: 8px;
+}
+
+/* Titres façon logo */
+h1, h2, h3 {
+  font-family: 'Orbitron', sans-serif !important;
+  color: #7FF7EC !important;
+  letter-spacing: .5px;
+  text-shadow: 0 0 10px rgba(34,211,238,.45);
+}
+
+/* Texte courant */
+.stMarkdown, label, p { font-family: 'Rajdhani', sans-serif; }
+
+/* Boutons néon */
+.stButton > button {
+  background: linear-gradient(90deg,#06B6D4,#3B82F6);
+  color:#03141c; border:1px solid #22D3EE; border-radius:10px;
+  font-weight:700; letter-spacing:.3px;
+  box-shadow:0 0 12px rgba(34,211,238,.35);
+  transition: box-shadow .2s ease;
+}
+.stButton > button:hover { box-shadow:0 0 20px rgba(34,211,238,.75); border-color:#7FF7EC; }
+
+/* Onglets — plus espacés + police plus grande */
+.stTabs [data-baseweb="tab-list"] { gap: 22px; border-bottom: 1px solid #16324a; }
+.stTabs [data-baseweb="tab"] {
+  background:#10202E; border:1px solid #163247; border-radius:10px 10px 0 0; color:#9fd6df;
+  padding: 12px 26px;                 /* espace interne = onglets plus larges */
+}
+.stTabs [data-baseweb="tab"] p {
+  font-size: 1.18rem !important;      /* taille des libellés */
+  font-weight: 600;
+}
+.stTabs [aria-selected="true"] {
+  background:#0d2a3f; color:#7FF7EC !important;
+  box-shadow: inset 0 -2px 0 #22D3EE, 0 0 10px rgba(34,211,238,.25);
+}
+.stTabs [aria-selected="true"] p { color:#7FF7EC !important; }
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background:#0A1826; border-right:1px solid #14364e;
+}
+
+/* Cartes / metrics / alertes */
+[data-testid="stMetric"], .stAlert {
+  border:1px solid #163247; border-radius:10px;
+  box-shadow: 0 0 10px rgba(34,211,238,.08);
+}
+
+/* Focus des champs */
+input:focus, textarea:focus {
+  border-color:#22D3EE !important; box-shadow:0 0 8px rgba(34,211,238,.4) !important;
+}
+
+/* ============ 1. SIDEBAR : métriques en cartes néon ============ */
+section[data-testid="stSidebar"] [data-testid="stMetric"] {
+  background:#0d2033; border:1px solid #1b3f5c; border-radius:10px;
+  padding:10px 12px; margin-bottom:8px;
+  box-shadow:0 0 10px rgba(34,211,238,.10);
+}
+section[data-testid="stSidebar"] [data-testid="stMetricLabel"] p {
+  color:#7fb9c9 !important; font-size:.72rem !important;
+  letter-spacing:.5px; text-transform:uppercase;
+}
+section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+  color:#7FF7EC !important; font-size:.88rem !important; font-weight:700;
+  white-space:normal !important; overflow:visible !important;
+  text-overflow:clip !important; line-height:1.25;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 { font-size:1.05rem !important; }
+
+/* ============ 2. TABLEAUX : contour néon ============ */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+  border:1px solid #1b3f5c; border-radius:10px; overflow:hidden;
+  box-shadow:0 0 12px rgba(34,211,238,.08);
+}
+
+/* ============ 3. CHAMPS DE SAISIE : accents cyan + focus ============ */
+[data-baseweb="select"] > div, .stTextInput input, .stNumberInput input {
+  background:#0d1c2b !important; border:1px solid #1b3f5c !important; border-radius:8px !important;
+}
+[data-baseweb="select"] > div:focus-within {
+  border-color:#22D3EE !important; box-shadow:0 0 8px rgba(34,211,238,.4) !important;
+}
+/* chips du multiselect en cyan */
+[data-baseweb="tag"] {
+  background:linear-gradient(90deg,#0e7490,#0369a1) !important;
+  border:1px solid #22D3EE !important; color:#e6feff !important;
+}
+/* slider cyan */
+.stSlider [role="slider"] { box-shadow:0 0 8px rgba(34,211,238,.6) !important; }
+.stSlider [data-baseweb="slider"] div[data-testid="stTickBar"] { background:transparent !important; }
+
+/* ============ 4. MESSAGES : couleurs natives conservées (succès=vert, warning=ambre,
+   erreur=rouge, info=bleu), juste arrondis. Les verrous 🔒 ont leur propre carte cyan. */
+[data-testid="stAlert"] {
+  border-radius:10px !important;
+  box-shadow:0 0 10px rgba(0,0,0,.25);
+}
+.cliner-lock {
+  background:#0d2233; border:1px solid #1b3f5c; border-left:4px solid #22D3EE;
+  border-radius:10px; padding:14px 18px; color:#CDEFF4; font-size:1rem;
+  box-shadow:0 0 12px rgba(34,211,238,.12);
+}
+
+/* ============ 6. EXPANDERS ============ */
+[data-testid="stExpander"] { border:1px solid #163247 !important; border-radius:10px; }
+[data-testid="stExpander"] summary { color:#7FF7EC !important; font-weight:600; }
+
+/* ============ 7. BOUTONS TÉLÉCHARGEMENT : contour (distincts du primaire) ============ */
+[data-testid="stDownloadButton"] button {
+  background:transparent !important; color:#7FF7EC !important;
+  border:1px solid #22D3EE !important; box-shadow:none !important; font-weight:600;
+}
+[data-testid="stDownloadButton"] button:hover { box-shadow:0 0 12px rgba(34,211,238,.4) !important; }
+
+/* ============ 8. BULLES DU CHAT RAG ============ */
+[data-testid="stChatMessage"] {
+  background:#0d1c2b; border:1px solid #163247; border-radius:12px;
+}
+
+/* ============ 9. SCROLLBAR CYAN ============ */
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-track { background:#0A1420; }
+::-webkit-scrollbar-thumb { background:#1b3f5c; border-radius:6px; }
+::-webkit-scrollbar-thumb:hover { background:#22D3EE; }
+
+/* ============ 5. TITRES DE SECTION : barre d'accent + espace ============ */
+.stTabs h2 {
+  border-left:4px solid #22D3EE; padding-left:14px; margin-top:.3rem;
+}
+.stTabs h3 { margin-top:.6rem; }
+
+/* ============ 10. KPIs (badges sous la bannière) ============ */
+.cliner-kpis {
+  display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin:14px 0 6px;
+}
+.cliner-kpis span {
+  background:#0d2033; border:1px solid #1b3f5c; border-radius:10px;
+  padding:8px 18px; text-align:center; min-width:120px;
+  color:#9fd0da; font-size:.78rem; box-shadow:0 0 10px rgba(34,211,238,.10);
+}
+.cliner-kpis b { color:#7FF7EC; font-size:1.15rem; font-family:'Orbitron',sans-serif; }
+
+/* ============ 11. FOOTER ============ */
+.cliner-footer {
+  text-align:center; color:#5f8ea0; font-size:.82rem; line-height:1.6;
+  padding:22px 0 8px; margin-top:34px; border-top:1px solid #14364e;
+}
+
+/* ============ 12. SPINNER cyan ============ */
+.stSpinner p, .stSpinner > div > div { color:#7FF7EC !important; }
+</style>
+""", unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -129,15 +336,25 @@ if _ls is not None:
 # --------------------------------------------------------------------------- #
 # En-tête + sidebar
 # --------------------------------------------------------------------------- #
-banner_path = os.path.join(os.path.dirname(__file__), "assets", "cliner_logo.png")
-if os.path.exists(banner_path):
-    _, col_img, _ = st.columns([1, 1.5, 1])
-    with col_img:
-        st.image(banner_path, use_container_width=True)
+# Bannière CliNER — wordmark néon en CSS (net à toute taille, aucun fichier requis)
+st.markdown(
+    '<div class="cliner-hero">'
+    '<div class="cliner-word"><span class="cli">Cli</span><span class="ner">NER</span></div>'
+    '<div class="cliner-tag">AI-POWERED MEDICAL INTELLIGENCE</div>'
+    '</div>',
+    unsafe_allow_html=True)
 
-st.title("🫀 CliNER — Moteur d'Extraction & Chatbot Clinique")
-st.markdown("### Architecture de bout en bout (ETL Hybride & vLLM)")
-st.markdown("---")
+# Barre de KPIs (badges statiques sous la bannière)
+st.markdown(
+    "<div class='cliner-kpis'>"
+    "<span><b>58.3%</b><br>F1-Score (CHIA)</span>"
+    "<span><b>63%</b><br>Précision</span>"
+    "<span><b>75 tok/s</b><br>Inférence GPU</span>"
+    "<span><b>Qwen 7B + LoRA</b><br>Modèle NER</span>"
+    "</div>",
+    unsafe_allow_html=True)
+
+# Titre supprimé : redondant avec la bannière CliNER ci-dessus.
 
 st.sidebar.title("🫀 CliNER")
 st.sidebar.markdown("*AI-Powered Medical Intelligence & End-to-End Clinical Named Entity Recognition engine.*")
@@ -162,15 +379,20 @@ if st.session_state.api_url_input:
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
+def _lock_card(msg):
+    """Carte de verrouillage stylée (cyan) au lieu du bandeau st.info bleu."""
+    st.markdown(f"<div class='cliner-lock'>🔒 {msg}</div>", unsafe_allow_html=True)
+
+
 def lock_need_search():
     """Onglet 2 : tant qu'aucune recherche n'a été lancée."""
-    st.info("🔒 Lancez d'abord une recherche dans l'onglet « 🔎 Critères de sélection ».")
+    _lock_card("Lancez d'abord une recherche dans l'onglet « 🔎 Critères de sélection ».")
 
 
 def lock_need_analysis():
     """Onglets 3 & 4 : tant que la Summary table n'a pas généré l'extraction GPU."""
-    st.info("🔒 Cochez des études dans « 📑 Summary table » puis cliquez "
-            "« 🚀 Analyser (GPU) » pour débloquer cet onglet.")
+    _lock_card("Cochez des études dans « 📑 Summary table » puis cliquez "
+               "« 🚀 Analyser (GPU) » pour débloquer cet onglet.")
 
 
 def build_api_query(values):
@@ -470,11 +692,23 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # (found_studies) pour la Summary table -> pas de 2e requête. Aucune IA ici.
 with tab1:
     st.header("1. Sélection des critères")
+
+    # ⚡ Démo rapide : préremplit "Breast Cancer" et lance la recherche.
+    # Placé AVANT les widgets pour pouvoir écrire dans st.session_state["val_Condition"].
+    dcol, _ = st.columns([1, 2])
+    if dcol.button("⚡ Démo rapide — Breast Cancer"):
+        st.session_state["val_Condition"] = "Breast Cancer"
+        st.session_state["_run_search"] = True
+        st.rerun()
+
     st.markdown("Choisis **un ou plusieurs** critères, puis renseigne leurs valeurs.")
 
     label_to_field = {FIELD_LABELS.get(f, f): f for f in QUERY_FIELDS}
-    sel_labels = st.multiselect("Critères de recherche :", list(label_to_field.keys()),
-                                default=["Maladie (Condition)"])
+    sel_labels = st.multiselect(
+        "Critères de recherche :", list(label_to_field.keys()),
+        default=["Maladie (Condition)"],
+        help="Ajoute un ou plusieurs filtres (maladie, phase, âge, sexe…). "
+             "La maladie est le plus courant pour démarrer.")
     selected = [label_to_field[l] for l in sel_labels]
 
     values = {}
@@ -491,10 +725,12 @@ with tab1:
                 values[f] = st.text_input(disp + " (ex: Breast Cancer)", key=f"val_{f}")
 
     c1, c2 = st.columns(2)
-    max_results = c1.slider("Nombre d'essais à récupérer :", 1, 20, 5)
-    force_pdf = c2.checkbox("📥 Forcer le scraping PDF (Plan B)")
+    max_results = c1.slider("Nombre d'essais à récupérer :", 1, 20, 5,
+                            help="Nombre maximum d'essais renvoyés par ClinicalTrials.")
+    force_pdf = c2.checkbox("📥 Forcer le scraping PDF (Plan B)",
+                            help="Force le téléchargement du PDF complet au lieu du texte de l'API.")
 
-    if st.button("🚀 Lancer la recherche", type="primary"):
+    if st.button("🚀 Lancer la recherche", type="primary") or st.session_state.pop("_run_search", False):
         api_query, label = build_api_query(values)
         user_min = values.get("MinimumAge") or 0
         user_max = values.get("MaximumAge") or 0
@@ -545,12 +781,19 @@ with tab2:
         # Pré-coche les études déjà sélectionnées (restaurées au refresh)
         _prev = set(st.session_state.get("selected_ncts", []))
         df_sum.insert(0, "Analyser", df_sum["NCT_ID"].isin(_prev))
+        # Colonne lien cliquable vers la fiche officielle ClinicalTrials.gov
+        df_sum["🔗 Fiche"] = "https://clinicaltrials.gov/study/" + df_sum["NCT_ID"].astype(str)
 
         st.caption("Coche les études à envoyer au modèle, puis clique « Analyser (GPU) ».")
         edited = st.data_editor(
             df_sum, hide_index=True, use_container_width=True,
-            column_config={"Analyser": st.column_config.CheckboxColumn(
-                "Analyser", help="Cocher pour envoyer cette étude au GPU")},
+            column_config={
+                "Analyser": st.column_config.CheckboxColumn(
+                    "Analyser", help="Cocher pour envoyer cette étude au GPU"),
+                "🔗 Fiche": st.column_config.LinkColumn(
+                    "🔗 Fiche", help="Ouvrir la fiche officielle ClinicalTrials.gov",
+                    display_text="Ouvrir ↗"),
+            },
             disabled=[c for c in df_sum.columns if c != "Analyser"],
             key="summary_editor")
 
@@ -558,14 +801,16 @@ with tab2:
         st.session_state.selected_ncts = selected_ncts
 
         st.download_button("📥 Exporter la table (CSV)",
-                           df_sum.drop(columns=["Analyser"]).to_csv(index=False, sep=';').encode('utf-8-sig'),
+                           df_sum.drop(columns=["Analyser", "🔗 Fiche"]).to_csv(index=False, sep=';').encode('utf-8-sig'),
                            file_name="summary_table.csv", mime="text/csv")
 
         st.markdown("---")
-        cbtn, cinfo = st.columns([1, 2])
-        launch = cbtn.button(f"🚀 Analyser {len(selected_ncts)} étude(s) cochée(s) (GPU)",
-                             type="primary", disabled=not selected_ncts)
-        cinfo.caption("Nécessite le serveur GPU allumé. Débloque les onglets 3 & 4.")
+        launch = st.button(f"🚀 Analyser {len(selected_ncts)} étude(s) cochée(s) (GPU)",
+                           type="primary", disabled=not selected_ncts)
+        st.markdown(
+            "<div style='text-align:center; color:#9fd0da; font-size:.9rem; margin-top:6px;'>"
+            "Nécessite le serveur GPU allumé. Débloque les onglets 3 &amp; 4.</div>",
+            unsafe_allow_html=True)
 
         if launch:
             label = st.session_state.latest_query
@@ -622,7 +867,7 @@ with tab3:
             counts["Médicaments"] += len([m for m in str(row["Médicaments (Drug)"]).split(",") if m.strip()])
             counts["Critères"] += len([c for c in str(row["Critères d'éligibilité"]).split(",") if c.strip()])
         st.subheader("Répartition des entités extraites")
-        st.bar_chart(pd.DataFrame({"Nombre": counts}))
+        st.bar_chart(pd.DataFrame({"Nombre": counts}), color="#22D3EE")
 
         st.markdown("---")
         st.info("💬 **Envie d'aller plus loin ?** L'extraction NER a généré les vecteurs BioBERT dans la base de données ! Vous pouvez maintenant accéder à l'onglet **« 💬 Chatbot RAG »** pour poser vos questions complexes sur ces essais en langage naturel.")
@@ -636,13 +881,51 @@ with tab4:
     else:
         doc_filter = st.selectbox("Filtrer par essai (Optionnel) :",
                                   ["Toute la base"] + st.session_state.extracted_docs)
+
+        # Questions suggérées : libellé FR affiché, mais requête EN envoyée au
+        # retrieval (BioBERT est anglophone -> meilleurs extraits). Clic = envoi.
+        suggestions = [
+            ("💊 Quels médicaments / traitements sont utilisés ?",
+             "What drugs, medications, or specific therapies are used in those studies?"),
+            ("🧪 Y a-t-il des essais contrôlés par placebo ?",
+             "Are there any placebo-controlled trials mentioned in the context? If yes, describe them."),
+            ("🎂 Âge minimum et maximum pour participer ?",
+             "What is the minimum and maximum age required to participate in these studies?"),
+            ("🤰 Femmes enceintes / allaitantes admises ? Pourquoi ?",
+             "Are pregnant or breastfeeding women allowed to participate? Explain why."),
+            ("🚫 Conditions médicales qui excluent un patient ?",
+             "List all the medical conditions that would exclude a patient from participating."),
+            ("🎯 Critères de jugement principaux (outcomes) ?",
+             "What are the main endpoints or primary outcomes being measured in these studies?"),
+            ("📄 Combien de documents utilisés ? Liste leurs ID.",
+             "How many distinct clinical trials or documents did you use to answer? List their ID or name."),
+            ("📝 Résume l'objectif des essais en un paragraphe.",
+             "Can you summarize the main goal of the trials in one short paragraph?"),
+        ]
+        st.caption("💡 Questions suggérées (cliquables) :")
+        clicked = None
+        scols = st.columns(2)
+        for i, (label_fr, query_en) in enumerate(suggestions):
+            if scols[i % 2].button(label_fr, key=f"sugg_{i}", use_container_width=True):
+                clicked = (label_fr, query_en)
+
+        # Historique
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
-        if prompt := st.chat_input("Posez votre question clinique..."):
-            st.session_state.chat_history.append({"role": "user", "content": prompt})
+
+        typed = st.chat_input("Posez votre question clinique...")
+        if clicked:
+            display_q, query_q = clicked          # FR affiché / EN envoyé à l'API
+        elif typed:
+            display_q = query_q = typed
+        else:
+            display_q = query_q = None
+
+        if query_q:
+            st.session_state.chat_history.append({"role": "user", "content": display_q})
             with st.chat_message("user"):
-                st.markdown(prompt)
+                st.markdown(display_q)
             with st.chat_message("assistant"):
                 ph = st.empty()
                 ph.markdown("🧠 Recherche vectorielle + génération...")
@@ -652,7 +935,7 @@ with tab4:
                     # pour éviter la contamination cross-session (fix bug RAG scope)
                     session_doc_ids = ",".join(st.session_state.extracted_docs) if not sel else None
                     r = requests.post(f"{api_url}/chat_rag",
-                                      data={"question": prompt, "doc_id": sel,
+                                      data={"question": query_q, "doc_id": sel,
                                             "doc_ids": session_doc_ids},
                                       headers={"Bypass-Tunnel-Reminder": "true"})
                     if r.status_code == 200:
@@ -663,6 +946,17 @@ with tab4:
                         ph.error(f"Erreur API ({r.status_code})")
                 except Exception as e:
                     ph.error(f"Impossible de joindre l'API : {e}")
+
+
+# --------------------------------------------------------------------------- #
+# Footer
+# --------------------------------------------------------------------------- #
+st.markdown(
+    "<div class='cliner-footer'>"
+    "<b>CliNER</b> · AI-Powered Medical Intelligence — Projet Jedha Bootcamp AIFS01<br>"
+    "Patrick Mouliom · Christopher Gilleron · Jérémie Becker · Arnaud Hoarau · Karim Atebata"
+    "</div>",
+    unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
