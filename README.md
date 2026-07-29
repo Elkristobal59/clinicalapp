@@ -36,6 +36,15 @@ cd clinicalapp
 Lors du démarrage de votre instance Lightning AI, vous devez lancer l'infrastructure backend (API + GPU) et l'outil de monitoring (MLflow).
 Ouvrez 4 terminaux différents et lancez ces 4 commandes. **Il vous suffit de copier-coller, aucune URL n'est à modifier !**
 
+**Avant de lancer Uvicorn, configurez la connexion Supabase :**
+
+```bash
+echo 'SUPABASE_DATABASE_URL="postgresql://postgres.<PROJECT_REF>:<PASSWORD_URL_ENCODED>@<SUPABASE_POOLER_HOST>:6543/postgres"' > .env
+```
+
+Remplacez `<PROJECT_REF>`, `<PASSWORD_URL_ENCODED>` et `<SUPABASE_POOLER_HOST>` par les paramètres fournis dans Supabase.
+
+
 **Terminal 1 : Le Cerveau (API & Modèles GPU)**
 ```bash
 uvicorn api.main:app --host 0.0.0.0 --port 8000
