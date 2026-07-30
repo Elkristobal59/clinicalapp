@@ -103,6 +103,19 @@ async def startup_event():
     print("Connexion Supabase (Base Vectorielle)...")
     conn = psycopg2.connect(SUPABASE_DB_URL)
     
+    # --- CREATION DE LA TABLE DE CACHE ---
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS clinical_ner_cache (
+                doc_id TEXT PRIMARY KEY,
+                disease TEXT,
+                extraction TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+    print("Table de cache NER prête.")
+    
     # 📊 MONITORING MLOPS AVEC MLFLOW
     print("Configuration MLflow...")
     db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "mlflow.db"))
@@ -137,6 +150,22 @@ def process_extracted_text(text: str, filename: str, disease: str, start_time: f
     global conn, cur, biobert_model, biobert_tokenizer, qwen_model, qwen_tokenizer, device, is_vllm
     cur = None
     try:
+        # --- NOUVEAUTÉ: VÉRIFICATION DU CACHE NER ---
+        cur = conn.cursor()
+        cur.execute("SELECT extraction FROM clinical_ner_cache WHERE doc_id = %s", (filename,))
+        cached_result = cur.fetchone()
+        
+        if cached_result:
+            print(f"⚡ CACHE HIT pour {filename} ! Réponse instantanée en {time.time() - start_time:.2f}s.")
+            cur.close()
+            # On loggue le cache hit dans MLflow
+            with mlflow.start_run():
+                mlflow.log_param("disease", disease)
+                mlflow.log_param("document", filename)
+                mlflow.log_param("cache_hit", True)
+                mlflow.log_metric("latency_sec", time.time() - start_time)
+            return {"status": "success", "disease": disease, "document": filename, "extraction": cached_result[0]}
+        
         # --- 1. CHUNKING (Découpage) ---
         # On ne peut pas donner un PDF de 100 pages à l'IA d'un coup (la mémoire exploserait).
         # On le coupe en morceaux de 1000 caractères, avec un chevauchement de 200 pour ne pas couper une phrase au milieu.
@@ -246,6 +275,20 @@ Text: {context}"""
             
         # Conversion du dictionnaire final en JSON string pour la réponse HTTP
         final_json_str = json.dumps(final_dict, ensure_ascii=False)
+        
+        # --- ENREGISTREMENT DANS LE CACHE ---
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO clinical_ner_cache (doc_id, disease, extraction) 
+                VALUES (%s, %s, %s)
+                ON CONFLICT (doc_id) DO UPDATE SET extraction = EXCLUDED.extraction, disease = EXCLUDED.disease
+            """, (filename, disease, final_json_str))
+            conn.commit()
+            print(f"💾 Sauvegarde en cache réussie pour {filename}.")
+        except Exception as e:
+            print(f"Erreur d'insertion cache : {e}")
+            conn.rollback()
         
         with mlflow.start_run():
             mlflow.log_param("disease", disease)
