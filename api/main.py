@@ -139,6 +139,7 @@ def get_biobert_embedding(text):
     emb = torch.nn.functional.normalize(emb, p=2, dim=1) # Normalisation pour la similarité cosinus (Vector Database)
     return emb[0].cpu().tolist()
 
+@mlflow.trace(name="NER_Pipeline", span_type="CHAIN")
 def process_extracted_text(text: str, filename: str, disease: str, start_time: float) -> dict:
     """
     Le cœur du Pipeline RAG (Retrieval-Augmented Generation).
@@ -383,6 +384,7 @@ async def process_pdf(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat_rag")
+@mlflow.trace(name="RAG_Chatbot", span_type="CHAIN")
 async def chat_rag(question: str = Form(...), doc_id: str = Form(None), doc_ids: str = Form(None)):
     """
     Route API (Point d'accès) #3 : Le Chatbot Conversationnel RAG (Retrieval-Augmented Generation).
