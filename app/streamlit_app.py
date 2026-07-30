@@ -232,6 +232,14 @@ section[data-testid="stSidebar"] h3 { font-size:1.05rem !important; }
 
 /* ============ 12. SPINNER cyan ============ */
 .stSpinner p, .stSpinner > div > div { color:#7FF7EC !important; }
+
+/* ============ 13. BARRE DE PROGRESSION néon cyan ============ */
+.stProgress > div > div > div > div {
+  background: linear-gradient(90deg,#06B6D4,#22D3EE,#3B82F6) !important;
+  box-shadow: 0 0 12px rgba(34,211,238,.6);
+}
+.stProgress > div > div > div { background:#10202E; border-radius:6px; }
+.stProgress p { color:#7FF7EC !important; text-align:center; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -565,11 +573,15 @@ def build_task(study, force_pdf):
     return {"type": "pdf", "nct_id": nct_id}
 
 
-def run_gpu_extraction(tasks, label, api_url, output_dir):
-    """Envoie les études sélectionnées au serveur GPU (vLLM). Retourne les résultats."""
+def run_gpu_extraction(tasks, label, api_url, output_dir, progress_cb=None):
+    """Envoie les études sélectionnées au serveur GPU (vLLM). Retourne les résultats.
+    progress_cb(done, total, nct) est appelé à chaque étude (barre de progression)."""
     results = []
-    for task in tasks:
+    total = len(tasks)
+    for i, task in enumerate(tasks, start=1):
         nct_id = task["nct_id"]
+        if progress_cb:
+            progress_cb(i, total, nct_id)
         if nct_id in st.session_state.demo_cache:
             results.append(st.session_state.demo_cache[nct_id])
             continue
@@ -822,17 +834,26 @@ with tab2:
             sel_studies = [s for s in st.session_state.found_studies
                            if _safe_get(s, "protocolSection", "identificationModule", "nctId") in selected_ncts]
             tasks = [build_task(s, st.session_state.force_pdf) for s in sel_studies]
-            with st.spinner(f"Envoi de {len(tasks)} protocole(s) au GPU (vLLM)..."):
-                t0 = time.time()
-                results = run_gpu_extraction(tasks, label, api_url, output_dir)
-                st.session_state.latest_results = results
-                st.session_state.extracted_docs = list(set(st.session_state.extracted_docs))
-                if results:
-                    st.session_state.analysis_done = True
-                    st.success(f"✅ Extraction terminée en {time.time() - t0:.1f}s — "
-                               "onglets 3 & 4 débloqués.")
-                else:
-                    st.warning("Aucun résultat renvoyé par le GPU (serveur éteint ?).")
+
+            # Barre de progression centrée (néon cyan), sous la table / au-dessus du footer
+            _pc1, _pcol, _pc3 = st.columns([1, 2, 1])
+            _pbar = _pcol.progress(0, text="🧠 Analyse GPU en cours…")
+
+            def _update(done, total, nct):
+                _pbar.progress(min(int(done / total * 100), 100),
+                               text=f"🧠 Analyse en cours… {done}/{total} — {nct}")
+
+            t0 = time.time()
+            results = run_gpu_extraction(tasks, label, api_url, output_dir, progress_cb=_update)
+            _pbar.empty()   # on retire la barre une fois terminé
+            st.session_state.latest_results = results
+            st.session_state.extracted_docs = list(set(st.session_state.extracted_docs))
+            if results:
+                st.session_state.analysis_done = True
+                st.success(f"✅ Extraction terminée en {time.time() - t0:.1f}s — "
+                           "onglets 3 & 4 débloqués.")
+            else:
+                st.warning("Aucun résultat renvoyé par le GPU (serveur éteint ?).")
 
         if st.session_state.analysis_done and st.session_state.latest_results:
             with st.expander("🔎 Aperçu des extractions générées"):
