@@ -766,6 +766,7 @@ with tab1:
             st.session_state.latest_results = []
             st.session_state.extracted_docs = []
             st.session_state.selected_ncts = []
+            st.session_state.chat_history = []  # 🧹 Purge automatique du Chat sur nouvelle recherche
             st.success(f"✅ {len(kept)} essai(s) récupéré(s) en {elapsed:.1f}s. "
                        "Va dans l'onglet « 📑 Summary table ».")
 

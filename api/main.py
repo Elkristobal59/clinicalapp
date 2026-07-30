@@ -436,7 +436,7 @@ async def chat_rag(question: str = Form(...), doc_id: str = Form(None), doc_ids:
         for i, r in enumerate(results, 1):
             nom_document = r[0]
             texte_extrait = r[1]
-            context_parts.append(f"--- DOCUMENT / ESSAI CLINIQUE : {nom_document} (Extrait N°{i}) ---\n{texte_extrait}\n-----------------------------------")
+            context_parts.append(f"--- EXTRAIT N°{i} DE L'ESSAI : {nom_document} ---\n{texte_extrait}\n-----------------------------------")
         
         context = "\n\n".join(context_parts)
         
