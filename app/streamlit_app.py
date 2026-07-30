@@ -723,6 +723,8 @@ with tab1:
                                             value=0, key=f"val_{f}")
             else:  # Condition (texte libre)
                 values[f] = st.text_input(disp + " (ex: Breast Cancer)", key=f"val_{f}")
+                if f == "Condition":
+                    st.caption("📋 **Exemples (à copier-coller) :** Breast Cancer, Type 2 Diabetes, Alzheimer's Disease, Rheumatoid Arthritis, Major Depressive Disorder, Multiple Sclerosis, Asthma")
 
     c1, c2 = st.columns(2)
     max_results = c1.slider("Nombre d'essais à récupérer :", 1, 20, 5,
