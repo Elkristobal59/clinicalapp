@@ -879,6 +879,12 @@ with tab3:
 # ============================ ONGLET 4 : RAG =============================== #
 with tab4:
     st.header("4. Assistant Chatbot RAG")
+    
+    c_clear, c_space = st.columns([1, 4])
+    if c_clear.button("🗑️ Vider le Chat"):
+        st.session_state.chat_history = []
+        st.rerun()
+        
     if not st.session_state.analysis_done:
         lock_need_analysis()
     else:
