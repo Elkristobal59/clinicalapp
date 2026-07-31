@@ -64,11 +64,6 @@ async def startup_event():
     print("Initialisation du pipeline sur GPU...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # 📥 CHARGEMENT DE BIOBERT (Modèle léger)
-    print(f"Chargement {BIOBERT_MODEL} (Embeddings)...")
-    biobert_tokenizer = AutoTokenizer.from_pretrained(BIOBERT_MODEL)
-    biobert_model = AutoModel.from_pretrained(BIOBERT_MODEL).to(device)
-    
     # 📥 CHARGEMENT DE QWEN (Modèle Lourd - 7 Milliards de paramètres)
     print(f"Chargement {QWEN_MODEL} (LLM Génératif)...")
     qwen_tokenizer = AutoTokenizer.from_pretrained(QWEN_MODEL)
@@ -99,6 +94,11 @@ async def startup_event():
         except:
             print("Adapter not found on HF, using base model")
             qwen_model = base_model
+
+    # 📥 CHARGEMENT DE BIOBERT (Modèle léger)
+    print(f"Chargement {BIOBERT_MODEL} (Embeddings)...")
+    biobert_tokenizer = AutoTokenizer.from_pretrained(BIOBERT_MODEL)
+    biobert_model = AutoModel.from_pretrained(BIOBERT_MODEL).to(device)
     
     print("Connexion Supabase (Base Vectorielle)...")
     conn = psycopg2.connect(SUPABASE_DB_URL)
