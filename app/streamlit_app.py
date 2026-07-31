@@ -662,12 +662,17 @@ def results_to_df(results):
     for res in results:
         ext = res.get("extraction", {})
         nct_id = res.get("document", "N/A")
-        meds = ext.get("medications", []) if isinstance(ext, dict) else []
+        meds_raw = ext.get("medications", ext.get("Drug", [])) if isinstance(ext, dict) else []
+        if isinstance(meds_raw, str): meds_raw = [meds_raw]
+        elif not isinstance(meds_raw, list): meds_raw = [str(meds_raw)]
         meds = ", ".join(str(m.get("name", m.get("description", ""))) if isinstance(m, dict)
-                         else str(m) for m in meds)
-        crit = ext.get("inclusion_criteria", []) if isinstance(ext, dict) else []
+                         else str(m) for m in meds_raw)
+                         
+        crit_raw = ext.get("inclusion_criteria", ext.get("Procedure", [])) if isinstance(ext, dict) else []
+        if isinstance(crit_raw, str): crit_raw = [crit_raw]
+        elif not isinstance(crit_raw, list): crit_raw = [str(crit_raw)]
         crit = ", ".join(str(c.get("description", c.get("category", ""))) if isinstance(c, dict)
-                         else str(c) for c in crit)
+                         else str(c) for c in crit_raw)
 
         # Métadonnées officielles ClinicalTrials.gov
         m = meta.get(nct_id, {})
