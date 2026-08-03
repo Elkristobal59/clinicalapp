@@ -45,7 +45,7 @@ Ce document explique pas à pas le circuit de la donnée illustré sur le schém
     *   **Parcours :** Chaque "chunk" de texte est avalé par le modèle **BioBERT** qui le transforme en une matrice mathématique de 768 dimensions (embedding). Ces vecteurs sont sauvegardés de manière pérenne dans la base PostgreSQL via l'extension **pgvector**.
 
 *   **Flèche : `Eligibility paragraph` (Chunking & Vectorization → NER Qwen)**
-    *   **Outils :** BioBERT / Algorithme TF-IDF (Pipeline Offline/Localize)
+    *   **Outils :** BioBERT
     *   **Parcours :** Parmi tous les morceaux de texte de l'essai, le système isole intelligemment LE paragraphe spécifique correspondant aux critères d'éligibilité (grâce à une recherche sémantique / calcul de similarité). C'est ce paragraphe concentré qui est envoyé à l'étape suivante.
 
 *   **Flèche : `results (named entities)` (NER Qwen → Tab 3)**
