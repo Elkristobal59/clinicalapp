@@ -8,6 +8,7 @@ mlruns/
 *.tfstate
 *.tfstate.backup
 *.safetensors
+docs/
 _scratch_scripts/
 models/
 data/
