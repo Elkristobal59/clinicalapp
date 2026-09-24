@@ -372,14 +372,16 @@ st.sidebar.subheader("👨‍💻 L'Équipe")
 st.sidebar.markdown("Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau, Karim Atebata")
 st.sidebar.markdown("---")
 st.sidebar.header("Architecture & Stack")
-st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (L4 GPU)")
+st.sidebar.metric(label="Serveur Inférence", value="AWS EC2 GPU / Lightning AI")
 st.sidebar.metric(label="Moteurs (NER & RAG)", value="Qwen 2.5 7B + BioBERT")
 st.sidebar.metric(label="Stockage Durable", value="Supabase (Postgres & S3)")
-st.sidebar.metric(label="MLOps & Tracking", value="MLflow")
+st.sidebar.metric(label="MLOps & Tracking", value="MLflow (Google Cloud Run)")
+st.sidebar.markdown("[📊 **Ouvrir le Dashboard MLflow Cloud**](https://mlflow-cliner-mlops-1054740171053.europe-west9.run.app/#/experiments/2)")
+st.sidebar.markdown("---")
 api_url_raw = st.sidebar.text_input(
     "URL Backend Inférence (AWS EC2 / Lightning AI / Local):",
-    value=os.getenv("BACKEND_API_URL", os.getenv("LIGHTNING_AI_API_URL", "https://protocole-clinique-api.loca.lt")),
-    help="Entrez l'URL de votre serveur FastAPI : ex. http://<IP_PUBLIQUE_EC2>:8000 ou votre URL Lightning.ai",
+    value=os.getenv("BACKEND_API_URL", os.getenv("LIGHTNING_AI_API_URL", "http://13.37.227.123:8000")),
+    help="Entrez l'URL de votre serveur FastAPI : ex. http://13.37.227.123:8000 (port 8000) ou votre URL Lightning.ai",
     key="api_url_input")
 
 # Nettoyage automatique et tolérance aux erreurs de saisie (ex: http:/ ou manque de http://)
@@ -604,7 +606,8 @@ def run_gpu_extraction(tasks, label, api_url, output_dir, progress_cb=None):
                     f"{api_url}/process_text",
                     data={"disease": label, "document_id": nct_id,
                           "text_content": task["text"]},
-                    headers={"Bypass-Tunnel-Reminder": "true"})
+                    headers={"Bypass-Tunnel-Reminder": "true"},
+                    timeout=120)
             else:
                 pdf_path = (download_pdf_for_nctid(nct_id, output_dir)
                             if download_pdf_for_nctid else None)
@@ -614,7 +617,8 @@ def run_gpu_extraction(tasks, label, api_url, output_dir, progress_cb=None):
                             f"{api_url}/process_pdf",
                             files={"file": (f"{nct_id}.pdf", fh, "application/pdf")},
                             data={"disease": label},
-                            headers={"Bypass-Tunnel-Reminder": "true"})
+                            headers={"Bypass-Tunnel-Reminder": "true"},
+                            timeout=180)
                 else:
                     st.warning(f"Ni texte ni PDF pour {nct_id}")
                     continue
