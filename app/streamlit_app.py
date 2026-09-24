@@ -376,12 +376,25 @@ st.sidebar.metric(label="Serveur Inférence", value="Lightning AI (L4 GPU)")
 st.sidebar.metric(label="Moteurs (NER & RAG)", value="Qwen 2.5 7B + BioBERT")
 st.sidebar.metric(label="Stockage Durable", value="Supabase (Postgres & S3)")
 st.sidebar.metric(label="MLOps & Tracking", value="MLflow")
-api_url = st.sidebar.text_input(
-    "URL du FastAPI Orchestrateur (Lightning AI):",
-    value=os.getenv("LIGHTNING_AI_API_URL", "https://protocole-clinique-api.loca.lt"),
+api_url_raw = st.sidebar.text_input(
+    "URL Backend Inférence (AWS EC2 / Lightning AI / Local):",
+    value=os.getenv("BACKEND_API_URL", os.getenv("LIGHTNING_AI_API_URL", "https://protocole-clinique-api.loca.lt")),
+    help="Entrez l'URL de votre serveur FastAPI : ex. http://<IP_PUBLIQUE_EC2>:8000 ou votre URL Lightning.ai",
     key="api_url_input")
-if st.session_state.api_url_input:
-    os.environ["LIGHTNING_AI_API_URL"] = st.session_state.api_url_input
+
+# Nettoyage automatique et tolérance aux erreurs de saisie (ex: http:/ ou manque de http://)
+api_url = api_url_raw.strip()
+if api_url.startswith("http:/") and not api_url.startswith("http://"):
+    api_url = "http://" + api_url[6:].lstrip("/")
+elif api_url.startswith("https:/") and not api_url.startswith("https://"):
+    api_url = "https://" + api_url[7:].lstrip("/")
+elif not api_url.startswith("http://") and not api_url.startswith("https://"):
+    api_url = f"http://{api_url}"
+api_url = api_url.rstrip("/")
+
+if api_url:
+    os.environ["BACKEND_API_URL"] = api_url
+    os.environ["LIGHTNING_AI_API_URL"] = api_url
 
 
 # --------------------------------------------------------------------------- #
