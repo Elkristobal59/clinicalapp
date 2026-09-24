@@ -375,8 +375,8 @@ st.sidebar.header("Architecture & Stack")
 st.sidebar.metric(label="Serveur Inférence", value="AWS EC2 GPU / Lightning AI")
 st.sidebar.metric(label="Moteurs (NER & RAG)", value="Qwen 2.5 7B + BioBERT")
 st.sidebar.metric(label="Stockage Durable", value="Supabase (Postgres & S3)")
-st.sidebar.metric(label="MLOps & Tracking", value="MLflow (Google Cloud Run)")
-st.sidebar.markdown("[📊 **Ouvrir le Dashboard MLflow Cloud**](https://mlflow-cliner-mlops-1054740171053.europe-west9.run.app/#/experiments/2)")
+st.sidebar.metric(label="Observabilité Pure", value="MLflow (Google Cloud Run)")
+st.sidebar.markdown("[📊 **Dashboard Observabilité & Drift**](https://mlflow-cliner-mlops-1054740171053.europe-west9.run.app/#/experiments/2)")
 st.sidebar.markdown("---")
 api_url_raw = st.sidebar.text_input(
     "URL Backend Inférence (AWS EC2 / Lightning AI / Local):",
