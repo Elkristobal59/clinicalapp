@@ -40,206 +40,205 @@ st.set_page_config(page_title="CliNER — Clinical NER", page_icon=_page_icon, l
 # --------------------------------------------------------------------------- #
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600&display=swap');
+/* Typographie système moderne, lisible et professionnelle */
+* {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
 .stApp {
-  background: radial-gradient(1200px 600px at 50% -10%, #0e2a3a 0%, #0A1420 55%);
+  background-color: #0b1120;
 }
 
-/* Bannière collée en haut (moins d'espace vide au-dessus) */
-.block-container { padding-top: 1.5rem; }
+.block-container {
+  padding-top: 1.5rem;
+  max-width: 1240px;
+}
 
-/* Bannière CliNER — wordmark néon (texte = net à toute taille) */
+/* En-tête sobre et épuré */
 .cliner-hero {
   text-align: center;
-  padding: 22px 0 16px;
-  margin: 0 0 8px;
-  background: radial-gradient(700px 240px at 50% 0%, rgba(34,211,238,.10), transparent 70%);
-  border-bottom: 1px solid #16324a;
+  padding: 16px 0 18px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #1e293b;
 }
 .cliner-word {
-  font-family: 'Orbitron', sans-serif; font-weight: 800;
-  font-size: clamp(44px, 7vw, 96px); line-height: 1; letter-spacing: 2px;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
-.cliner-word .cli {
-  background: linear-gradient(180deg,#8fe3ff,#22D3EE 55%,#0ea5e9);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-  filter: drop-shadow(0 0 18px rgba(34,211,238,.55));
-}
-.cliner-word .ner {
-  background: linear-gradient(180deg,#9af5b8,#22c55e 55%,#16a34a);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-  filter: drop-shadow(0 0 18px rgba(34,197,94,.5));
-}
+.cliner-word .cli { color: #38bdf8; }
+.cliner-word .ner { color: #34d399; }
 .cliner-tag {
-  font-family: 'Rajdhani', sans-serif; font-weight: 600;
-  letter-spacing: 6px; font-size: clamp(11px, 1.4vw, 16px);
-  color: #9fd0da; margin-top: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-top: 4px;
 }
 
-/* Titres façon logo */
-h1, h2, h3 {
-  font-family: 'Orbitron', sans-serif !important;
-  color: #7FF7EC !important;
-  letter-spacing: .5px;
-  text-shadow: 0 0 10px rgba(34,211,238,.45);
+/* Titres sobres et professionnels */
+h1, h2, h3, h4 {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  color: #f1f5f9 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.3px;
+}
+.stTabs h2 {
+  font-size: 1.25rem !important;
+  border-left: 3px solid #0284c7;
+  padding-left: 12px;
+  margin: 1rem 0 1rem;
+}
+.stTabs h3 {
+  font-size: 1.1rem !important;
+  color: #e2e8f0 !important;
 }
 
-/* Texte courant */
-.stMarkdown, label, p { font-family: 'Rajdhani', sans-serif; }
+/* Texte courant & labels */
+p, label, .stMarkdown {
+  color: #cbd5e1;
+}
 
-/* Boutons néon */
+/* Boutons sobres et modernes */
 .stButton > button {
-  background: linear-gradient(90deg,#06B6D4,#3B82F6);
-  color:#03141c; border:1px solid #22D3EE; border-radius:10px;
-  font-weight:700; letter-spacing:.3px;
-  box-shadow:0 0 12px rgba(34,211,238,.35);
-  transition: box-shadow .2s ease;
+  background-color: #0284c7;
+  color: #ffffff;
+  border: 1px solid #0369a1;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 8px 18px;
+  transition: all 0.15s ease-in-out;
 }
-.stButton > button:hover { box-shadow:0 0 20px rgba(34,211,238,.75); border-color:#7FF7EC; }
+.stButton > button:hover {
+  background-color: #0369a1;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
 
-/* Onglets — plus espacés + police plus grande */
-.stTabs [data-baseweb="tab-list"] { gap: 22px; border-bottom: 1px solid #16324a; }
+/* Onglets professionnels */
+.stTabs [data-baseweb="tab-list"] {
+  gap: 12px;
+  border-bottom: 1px solid #1e293b;
+}
 .stTabs [data-baseweb="tab"] {
-  background:#10202E; border:1px solid #163247; border-radius:10px 10px 0 0; color:#9fd6df;
-  padding: 12px 26px;                 /* espace interne = onglets plus larges */
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 6px 6px 0 0;
+  color: #94a3b8;
+  padding: 10px 20px;
 }
 .stTabs [data-baseweb="tab"] p {
-  font-size: 1.18rem !important;      /* taille des libellés */
-  font-weight: 600;
+  font-size: 1rem !important;
+  font-weight: 500;
 }
 .stTabs [aria-selected="true"] {
-  background:#0d2a3f; color:#7FF7EC !important;
-  box-shadow: inset 0 -2px 0 #22D3EE, 0 0 10px rgba(34,211,238,.25);
+  background: #1e293b;
+  color: #38bdf8 !important;
+  border-color: #334155;
+  border-bottom: 2px solid #38bdf8;
 }
-.stTabs [aria-selected="true"] p { color:#7FF7EC !important; }
+.stTabs [aria-selected="true"] p {
+  color: #38bdf8 !important;
+  font-weight: 600;
+}
 
-/* Sidebar */
+/* Sidebar sobre */
 section[data-testid="stSidebar"] {
-  background:#0A1826; border-right:1px solid #14364e;
-}
-
-/* Cartes / metrics / alertes */
-[data-testid="stMetric"], .stAlert {
-  border:1px solid #163247; border-radius:10px;
-  box-shadow: 0 0 10px rgba(34,211,238,.08);
-}
-
-/* Focus des champs */
-input:focus, textarea:focus {
-  border-color:#22D3EE !important; box-shadow:0 0 8px rgba(34,211,238,.4) !important;
-}
-
-/* ============ 1. SIDEBAR : métriques en cartes néon ============ */
-section[data-testid="stSidebar"] [data-testid="stMetric"] {
-  background:#0d2033; border:1px solid #1b3f5c; border-radius:10px;
-  padding:10px 12px; margin-bottom:8px;
-  box-shadow:0 0 10px rgba(34,211,238,.10);
-}
-section[data-testid="stSidebar"] [data-testid="stMetricLabel"] p {
-  color:#7fb9c9 !important; font-size:.72rem !important;
-  letter-spacing:.5px; text-transform:uppercase;
-}
-section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
-  color:#7FF7EC !important; font-size:.88rem !important; font-weight:700;
-  white-space:normal !important; overflow:visible !important;
-  text-overflow:clip !important; line-height:1.25;
+  background-color: #070d17;
+  border-right: 1px solid #1e293b;
 }
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 { font-size:1.05rem !important; }
+section[data-testid="stSidebar"] h3 {
+  font-size: 1rem !important;
+  color: #e2e8f0 !important;
+}
 
-/* ============ 2. TABLEAUX : contour néon ============ */
+/* Tableaux */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
-  border:1px solid #1b3f5c; border-radius:10px; overflow:hidden;
-  box-shadow:0 0 12px rgba(34,211,238,.08);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-/* ============ 3. CHAMPS DE SAISIE : accents cyan + focus ============ */
+/* Champs de saisie */
 [data-baseweb="select"] > div, .stTextInput input, .stNumberInput input {
-  background:#0d1c2b !important; border:1px solid #1b3f5c !important; border-radius:8px !important;
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  border-radius: 6px !important;
+  color: #f8fafc !important;
 }
-[data-baseweb="select"] > div:focus-within {
-  border-color:#22D3EE !important; box-shadow:0 0 8px rgba(34,211,238,.4) !important;
+[data-baseweb="select"] > div:focus-within, .stTextInput input:focus, .stNumberInput input:focus {
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 1px #0284c7 !important;
 }
-/* chips du multiselect en cyan */
 [data-baseweb="tag"] {
-  background:linear-gradient(90deg,#0e7490,#0369a1) !important;
-  border:1px solid #22D3EE !important; color:#e6feff !important;
+  background-color: #1e293b !important;
+  border: 1px solid #475569 !important;
+  color: #e2e8f0 !important;
 }
-/* slider cyan */
-.stSlider [role="slider"] { box-shadow:0 0 8px rgba(34,211,238,.6) !important; }
-.stSlider [data-baseweb="slider"] div[data-testid="stTickBar"] { background:transparent !important; }
 
-/* ============ 4. MESSAGES : couleurs natives conservées (succès=vert, warning=ambre,
-   erreur=rouge, info=bleu), juste arrondis. Les verrous 🔒 ont leur propre carte cyan. */
+/* Alertes & cartes */
 [data-testid="stAlert"] {
-  border-radius:10px !important;
-  box-shadow:0 0 10px rgba(0,0,0,.25);
+  border-radius: 6px !important;
+  border: 1px solid #334155 !important;
 }
 .cliner-lock {
-  background:#0d2233; border:1px solid #1b3f5c; border-left:4px solid #22D3EE;
-  border-radius:10px; padding:14px 18px; color:#CDEFF4; font-size:1rem;
-  box-shadow:0 0 12px rgba(34,211,238,.12);
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-left: 3px solid #0284c7;
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: #cbd5e1;
+  font-size: 0.95rem;
 }
 
-/* ============ 6. EXPANDERS ============ */
-[data-testid="stExpander"] { border:1px solid #163247 !important; border-radius:10px; }
-[data-testid="stExpander"] summary { color:#7FF7EC !important; font-weight:600; }
+/* Expanders */
+[data-testid="stExpander"] {
+  border: 1px solid #334155 !important;
+  border-radius: 6px !important;
+  background-color: #0f172a;
+}
 
-/* ============ 7. BOUTONS TÉLÉCHARGEMENT : contour (distincts du primaire) ============ */
+/* Boutons Téléchargement */
 [data-testid="stDownloadButton"] button {
-  background:transparent !important; color:#7FF7EC !important;
-  border:1px solid #22D3EE !important; box-shadow:none !important; font-weight:600;
+  background: transparent !important;
+  color: #38bdf8 !important;
+  border: 1px solid #0284c7 !important;
+  border-radius: 6px !important;
 }
-[data-testid="stDownloadButton"] button:hover { box-shadow:0 0 12px rgba(34,211,238,.4) !important; }
+[data-testid="stDownloadButton"] button:hover {
+  background: #0c4a6e !important;
+}
 
-/* ============ 8. BULLES DU CHAT RAG ============ */
+/* Chatbot */
 [data-testid="stChatMessage"] {
-  background:#0d1c2b; border:1px solid #163247; border-radius:12px;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
 }
 
-/* ============ 9. SCROLLBAR CYAN ============ */
-::-webkit-scrollbar { width:10px; height:10px; }
-::-webkit-scrollbar-track { background:#0A1420; }
-::-webkit-scrollbar-thumb { background:#1b3f5c; border-radius:6px; }
-::-webkit-scrollbar-thumb:hover { background:#22D3EE; }
+/* Scrollbar discrète */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0b1120; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-/* ============ 5. TITRES DE SECTION : barre d'accent + espace ============ */
-.stTabs h2 {
-  border-left:4px solid #22D3EE; padding-left:14px; margin-top:.3rem;
-}
-.stTabs h3 { margin-top:.6rem; }
-
-/* ============ 10. KPIs (badges sous la bannière) ============ */
-.cliner-kpis {
-  display:flex; justify-content:center; gap:14px; flex-wrap:wrap; margin:14px 0 6px;
-}
-.cliner-kpis span {
-  background:#0d2033; border:1px solid #1b3f5c; border-radius:10px;
-  padding:8px 18px; text-align:center; min-width:120px;
-  color:#9fd0da; font-size:.78rem; box-shadow:0 0 10px rgba(34,211,238,.10);
-}
-.cliner-kpis b { color:#7FF7EC; font-size:1.15rem; font-family:'Orbitron',sans-serif; }
-
-/* ============ 11. FOOTER ============ */
+/* Footer sobre */
 .cliner-footer {
-  text-align:center; color:#5f8ea0; font-size:.82rem; line-height:1.6;
-  padding:22px 0 8px; margin-top:34px; border-top:1px solid #14364e;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.8rem;
+  padding: 24px 0 12px;
+  margin-top: 40px;
+  border-top: 1px solid #1e293b;
 }
-
-/* ============ 12. SPINNER cyan ============ */
-.stSpinner p, .stSpinner > div > div { color:#7FF7EC !important; }
-
-/* ============ 13. BARRE DE PROGRESSION néon cyan ============ */
-.stProgress > div > div > div > div {
-  background: linear-gradient(90deg,#06B6D4,#22D3EE,#3B82F6) !important;
-  box-shadow: 0 0 12px rgba(34,211,238,.6);
-}
-.stProgress > div > div > div { background:#10202E; border-radius:6px; }
-.stProgress p { color:#7FF7EC !important; text-align:center; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -344,44 +343,22 @@ if _ls is not None:
 # --------------------------------------------------------------------------- #
 # En-tête + sidebar
 # --------------------------------------------------------------------------- #
-# Bannière CliNER — wordmark néon en CSS (net à toute taille, aucun fichier requis)
+# Bannière CliNER sobre et professionnelle
 st.markdown(
     '<div class="cliner-hero">'
     '<div class="cliner-word"><span class="cli">Cli</span><span class="ner">NER</span></div>'
-    '<div class="cliner-tag">AI-POWERED MEDICAL INTELLIGENCE</div>'
+    '<div class="cliner-tag">Clinical Named Entity Recognition & Intelligence Platform</div>'
     '</div>',
     unsafe_allow_html=True)
 
-# Barre de KPIs (badges statiques sous la bannière)
-st.markdown(
-    "<div class='cliner-kpis'>"
-    "<span><b>58.3%</b><br>F1-Score (CHIA)</span>"
-    "<span><b>63%</b><br>Précision</span>"
-    "<span><b>75 tok/s</b><br>Inférence GPU</span>"
-    "<span><b>Qwen 7B + LoRA</b><br>Modèle NER</span>"
-    "</div>",
-    unsafe_allow_html=True)
-
-# Titre supprimé : redondant avec la bannière CliNER ci-dessus.
-
-st.sidebar.title("🫀 CliNER")
-st.sidebar.markdown("*AI-Powered Medical Intelligence & End-to-End Clinical Named Entity Recognition engine.*")
-st.sidebar.markdown("**Projet Jedha - Bootcamp AIFS01**")
+st.sidebar.markdown("### 🫀 **CliNER**")
+st.sidebar.caption("Système d'extraction d'entités médicales & RAG clinique")
 st.sidebar.markdown("---")
-st.sidebar.subheader("👨‍💻 L'Équipe")
-st.sidebar.markdown("Patrick Mouliom, Christopher Gilleron, Jérémie Becker, Arnaud Hoarau, Karim Atebata")
-st.sidebar.markdown("---")
-st.sidebar.header("Architecture & Stack")
-st.sidebar.metric(label="Serveur Inférence", value="AWS EC2 GPU / Lightning AI")
-st.sidebar.metric(label="Moteurs (NER & RAG)", value="Qwen 2.5 7B + BioBERT")
-st.sidebar.metric(label="Stockage Durable", value="Supabase (Postgres & S3)")
-st.sidebar.metric(label="Observabilité Pure", value="MLflow (Google Cloud Run)")
-st.sidebar.markdown("[📊 **Dashboard Observabilité & Drift**](https://mlflow-cliner-mlops-1054740171053.europe-west9.run.app/#/experiments/2)")
-st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ Configuration Backend")
 api_url_raw = st.sidebar.text_input(
-    "URL Backend Inférence (AWS EC2 / Lightning AI / Local):",
-    value=os.getenv("BACKEND_API_URL", os.getenv("LIGHTNING_AI_API_URL", "http://13.37.227.123:8000")),
-    help="Entrez l'URL de votre serveur FastAPI : ex. http://13.37.227.123:8000 (port 8000) ou votre URL Lightning.ai",
+    "URL Backend Inférence :",
+    value=os.getenv("BACKEND_API_URL", os.getenv("LIGHTNING_AI_API_URL", "http://localhost:8000")),
+    help="Entrez l'URL de votre serveur FastAPI : ex. http://localhost:8000 ou IP AWS EC2",
     key="api_url_input")
 
 # Nettoyage automatique et tolérance aux erreurs de saisie (ex: http:/ ou manque de http://)
@@ -1005,8 +982,7 @@ with tab4:
 # --------------------------------------------------------------------------- #
 st.markdown(
     "<div class='cliner-footer'>"
-    "<b>CliNER</b> · AI-Powered Medical Intelligence — Projet Jedha Bootcamp AIFS01<br>"
-    "Patrick Mouliom · Christopher Gilleron · Jérémie Becker · Arnaud Hoarau · Karim Atebata"
+    "CliNER · Clinical Named Entity Recognition & Biomedical RAG Platform"
     "</div>",
     unsafe_allow_html=True)
 
